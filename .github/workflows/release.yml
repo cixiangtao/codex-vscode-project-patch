@@ -68,9 +68,26 @@ jobs:
           printf 'TAG=v%s\n' "$RELEASE_VERSION" >> "$GITHUB_ENV"
 
       - name: Create or verify release tag
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
         run: |
           if git rev-parse "$TAG" >/dev/null 2>&1; then
-            test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
+            tag_sha="$(git rev-list -n 1 "$TAG")"
+            if test "$tag_sha" != "$GITHUB_SHA"; then
+              git merge-base --is-ancestor "$tag_sha" "$GITHUB_SHA"
+              published_artifact=".artifacts/published-${RELEASE_VERSION}.tgz"
+              curl --fail --silent --show-error --location \
+                "https://registry.npmjs.org/codex-vscode-project-patch/-/codex-vscode-project-patch-${RELEASE_VERSION}.tgz" \
+                --output "$published_artifact"
+              published_tree=".artifacts/published-${RELEASE_VERSION}"
+              current_tree=".artifacts/current-${RELEASE_VERSION}"
+              mkdir "$published_tree" "$current_tree"
+              tar -xzf "$published_artifact" -C "$published_tree"
+              tar -xzf "$ARTIFACT" -C "$current_tree"
+              diff --brief --recursive "$published_tree/package" "$current_tree/package"
+              mv "$published_artifact" "$ARTIFACT"
+              sha256sum "$ARTIFACT" > SHA256SUMS.txt
+            fi
           else
             git tag "$TAG" "$GITHUB_SHA"
             git push origin "$TAG"
