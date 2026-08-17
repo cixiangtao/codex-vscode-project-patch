@@ -63,7 +63,7 @@ jobs:
           artifact=".artifacts/codex-vscode-project-patch-${RELEASE_VERSION}.tgz"
           test -f "$artifact"
           test "$(find .artifacts -maxdepth 1 -name '*.tgz' | wc -l | tr -d ' ')" = "1"
-          sha256sum "$artifact" > SHA256SUMS.txt
+          (cd "$(dirname "$artifact")" && sha256sum "$(basename "$artifact")") > SHA256SUMS.txt
           printf 'ARTIFACT=%s\n' "$artifact" >> "$GITHUB_ENV"
           printf 'TAG=v%s\n' "$RELEASE_VERSION" >> "$GITHUB_ENV"
 
@@ -86,7 +86,7 @@ jobs:
               tar -xzf "$ARTIFACT" -C "$current_tree"
               diff --brief --recursive "$published_tree/package" "$current_tree/package"
               mv "$published_artifact" "$ARTIFACT"
-              sha256sum "$ARTIFACT" > SHA256SUMS.txt
+              (cd "$(dirname "$ARTIFACT")" && sha256sum "$(basename "$ARTIFACT")") > SHA256SUMS.txt
             fi
           else
             git tag "$TAG" "$GITHUB_SHA"
