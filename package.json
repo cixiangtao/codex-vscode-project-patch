@@ -8,7 +8,15 @@
     "vscode",
     "workspace"
   ],
+  "homepage": "https://github.com/cixiangtao/codex-vscode-project-patch#readme",
+  "bugs": {
+    "url": "https://github.com/cixiangtao/codex-vscode-project-patch/issues"
+  },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cixiangtao/codex-vscode-project-patch.git"
+  },
   "bin": {
     "codex-vscode-project-patch": "./dist/bin.mjs"
   },
