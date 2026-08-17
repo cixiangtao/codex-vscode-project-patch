@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible CLI failure or incorrect patch state.
+title: "bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach or paste the official OpenAI extension bundle. Redact usernames and private paths.
+  - type: input
+    id: cli-version
+    attributes:
+      label: CLI version
+      placeholder: 0.2.1
+    validations:
+      required: true
+  - type: input
+    id: extension-version
+    attributes:
+      label: OpenAI extension version
+      placeholder: 26.x.x
+    validations:
+      required: true
+  - type: dropdown
+    id: command
+    attributes:
+      label: Command
+      options:
+        - apply
+        - status
+        - restore
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: output
+    attributes:
+      label: Redacted output
+      description: Prefer the JSON output. Do not include the extension bundle.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction steps
+    validations:
+      required: true
