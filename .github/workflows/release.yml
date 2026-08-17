@@ -95,7 +95,6 @@ jobs:
 
       - name: Publish package when absent
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           RELEASE_VERSION: ${{ inputs.version }}
         run: |
           if npm view "codex-vscode-project-patch@$RELEASE_VERSION" version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
