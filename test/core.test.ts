@@ -180,6 +180,8 @@ test("human apply output includes reload, restore, and backup guidance", async (
     colors: noColors,
   });
   assert.match(output, /Workspace task filter enabled/);
+  assert.match(output, new RegExp(`Patch tool\\s+codex-vscode-project-patch@${TOOL_VERSION}`));
+  assert.match(output, new RegExp(`Codex plugin\\s+openai\\.chatgpt@${FIXTURE_VERSION}`));
   assert.match(output, /reload required/i);
   assert.match(output, /Developer: Reload Window/);
   assert.match(output, /npx -y codex-vscode-project-patch restore/);
@@ -203,7 +205,8 @@ test("human apply output gives each information section a distinct color", async
     colors: semanticColors,
   });
 
-  assert.match(output, /<cyan>Extension<\/cyan>/);
+  assert.match(output, /<cyan>Version information<\/cyan>/);
+  assert.match(output, /<cyan>Codex plugin<\/cyan>/);
   assert.match(output, /<yellow>Next steps — reload required<\/yellow>/);
   assert.match(output, /<magenta>Restore the official file<\/magenta>/);
 });
@@ -217,11 +220,21 @@ test("human restore and error output include the next safe command", async () =>
     colors: noColors,
   });
   assert.match(restoreOutput, /Official Codex extension file restored/);
+  assert.match(
+    restoreOutput,
+    new RegExp(`Patch tool\\s+codex-vscode-project-patch@${TOOL_VERSION}`),
+  );
+  assert.match(restoreOutput, new RegExp(`Codex plugin\\s+openai\\.chatgpt@${FIXTURE_VERSION}`));
   assert.match(restoreOutput, /Developer: Reload Window/);
   assert.match(restoreOutput, /npx -y codex-vscode-project-patch$/m);
 
-  const errorOutput = formatHumanError({ message: "Unsupported bundle" }, { colors: noColors });
+  const errorOutput = formatHumanError(
+    { message: "Unsupported bundle", details: { version: FIXTURE_VERSION } },
+    { colors: noColors },
+  );
   assert.match(errorOutput, /Command could not be completed/);
+  assert.match(errorOutput, new RegExp(`Patch tool\\s+codex-vscode-project-patch@${TOOL_VERSION}`));
+  assert.match(errorOutput, new RegExp(`Codex plugin\\s+openai\\.chatgpt@${FIXTURE_VERSION}`));
   assert.match(errorOutput, /status --json/);
 });
 
