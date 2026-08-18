@@ -10,16 +10,21 @@ VSIX or bundle. It modifies the user's existing local installation only.
 
 ## Supported build
 
-The first prototype deliberately has a narrow allowlist:
+The project deliberately keeps a narrow allowlist:
+
+<!-- compatibility-table:start -->
 
 | Extension version | Clean `out/extension.js` SHA-256                                   |
 | ----------------- | ------------------------------------------------------------------ |
-| `26.810.41047`    | `5669921cf77b0de7e49c8e6c6ac6283baa593ccf131bef7b2eac3e1b8eeaf859` |
+| `26.5814.41407`   | `bfbe07b5fcd521b743b6e548b04781ff9ed92f34da24b180c85180a92b8db8b7` |
+| `26.814.41407`    | `bfbe07b5fcd521b743b6e548b04781ff9ed92f34da24b180c85180a92b8db8b7` |
 | `26.810.52044`    | `5669921cf77b0de7e49c8e6c6ac6283baa593ccf131bef7b2eac3e1b8eeaf859` |
+| `26.810.41047`    | `5669921cf77b0de7e49c8e6c6ac6283baa593ccf131bef7b2eac3e1b8eeaf859` |
 
-Both extension versions currently ship the same entry bundle. Unknown versions,
-unknown hashes, already modified bundles, missing workspace helpers, and
-ambiguous patch anchors are refused.
+<!-- compatibility-table:end -->
+
+Unknown versions, unknown hashes, already modified bundles, missing workspace
+helpers, and ambiguous patch anchors are refused.
 
 ## One-command use
 
@@ -231,6 +236,36 @@ Codex Webview task list.
 For each new official build, regenerate the bundled app-server schema, confirm
 the `cwd` contract, trace the request bridge again, test against a copied
 installation, and only then add the new version/hash to the allowlist.
+
+## Scheduled compatibility updates
+
+`.github/workflows/update-compatibility.yml` checks the official Marketplace
+every six hours. It does no large download when the newest version is already in
+the registry. For an unknown version it downloads the official macOS ARM64 and
+x64 VSIX packages into temporary runner storage, then requires all of the
+following before changing source files:
+
+- both packages have the expected OpenAI identity, version, and local entry;
+- every clean entry has one supported request bridge and one workspace helper;
+- the patch transforms each platform bundle and the result passes JavaScript
+  syntax validation;
+- the platform bundle hashes are recorded without committing the VSIX or any
+  extracted proprietary file;
+- the bundled Codex binary regenerates `ThreadListParams`, whose `cwd` remains
+  an exact-match string-or-string-array filter;
+- the version-bumped package passes `pnpm release:check`.
+
+A successful check commits a version-bumped compatibility pull request,
+explicitly dispatches its required CI, waits for every protected-branch check,
+then squash-merges it and dispatches the Actions-owned npm/GitHub Release
+publisher. The scheduled run waits for public package and release-asset
+verification before succeeding. If structure, protocol, identity, download
+origin, or validation changes, the workflow leaves the allowlist untouched and
+opens or updates a blocking issue instead.
+
+Repository Actions settings must allow `GITHUB_TOKEN` to create pull requests;
+branch protection remains enabled and the workflow does not approve or bypass
+its own checks.
 
 ## License and status
 

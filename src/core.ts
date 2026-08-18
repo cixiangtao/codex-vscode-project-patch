@@ -5,13 +5,15 @@ import os from "node:os";
 import path from "node:path";
 
 import {
+  CLEAN_REQUEST_ANCHOR_SOURCE,
   KNOWN_BUNDLES,
-  ORIGINAL_REQUEST_ANCHOR,
+  LEGACY_PATCHED_REQUEST_ANCHOR,
   PATCH_ID,
+  PATCH_CWD_VARIABLE,
   PATCH_MARKER,
   PATCH_REVISION,
-  PATCHED_REQUEST_ANCHOR,
-  WORKSPACE_HELPER_ANCHORS,
+  PATCHED_REQUEST_ANCHOR_SOURCE,
+  WORKSPACE_HELPER_SOURCE,
 } from "./constants.js";
 
 export type Editor = "vscode" | "cursor" | "auto";
@@ -153,13 +155,25 @@ function countOccurrences(source: string, needle: string): number {
   return count;
 }
 
+function matches(source: string, pattern: string): RegExpMatchArray[] {
+  return [...source.matchAll(new RegExp(pattern, "g"))];
+}
+
 export function inspectPatchStructure(source: string): PatchStructure {
   const markerCount = countOccurrences(source, PATCH_MARKER);
-  const originalAnchorCount = countOccurrences(source, ORIGINAL_REQUEST_ANCHOR);
-  const patchedAnchorCount = countOccurrences(source, PATCHED_REQUEST_ANCHOR);
-  const workspaceHelperPresent = WORKSPACE_HELPER_ANCHORS.every((anchor) =>
-    source.includes(anchor),
-  );
+  const cleanAnchors = matches(source, CLEAN_REQUEST_ANCHOR_SOURCE);
+  const currentPatchedAnchors = matches(source, PATCHED_REQUEST_ANCHOR_SOURCE);
+  const legacyPatchedAnchorCount = countOccurrences(source, LEGACY_PATCHED_REQUEST_ANCHOR);
+  const workspaceHelpers = matches(source, WORKSPACE_HELPER_SOURCE);
+  const originalAnchorCount = cleanAnchors.length;
+  const patchedAnchorCount = currentPatchedAnchors.length + legacyPatchedAnchorCount;
+  const workspaceHelperPresent = workspaceHelpers.length === 1;
+  const patchedHelperMatches =
+    patchedAnchorCount === 1 &&
+    workspaceHelperPresent &&
+    ((currentPatchedAnchors.length === 1 &&
+      currentPatchedAnchors[0]!.groups?.helper === workspaceHelpers[0]!.groups?.helper) ||
+      (legacyPatchedAnchorCount === 1 && workspaceHelpers[0]!.groups?.helper === "Cb"));
 
   return {
     markerCount,
@@ -175,7 +189,8 @@ export function inspectPatchStructure(source: string): PatchStructure {
       markerCount === 1 &&
       originalAnchorCount === 0 &&
       patchedAnchorCount === 1 &&
-      workspaceHelperPresent,
+      workspaceHelperPresent &&
+      patchedHelperMatches,
   };
 }
 
@@ -189,7 +204,36 @@ export function patchBundle(source: string): string {
     );
   }
 
-  const patched = source.replace(ORIGINAL_REQUEST_ANCHOR, PATCHED_REQUEST_ANCHOR);
+  if (source.includes(PATCH_CWD_VARIABLE)) {
+    throw new PatchError(
+      "PATCH_VARIABLE_COLLISION",
+      "The bundle already contains the reserved patch variable.",
+    );
+  }
+  const cleanAnchor = matches(source, CLEAN_REQUEST_ANCHOR_SOURCE)[0]!;
+  const workspaceHelper = matches(source, WORKSPACE_HELPER_SOURCE)[0]!.groups?.helper;
+  const method = cleanAnchor.groups?.method;
+  const params = cleanAnchor.groups?.params;
+  if (workspaceHelper == null || method == null || params == null) {
+    throw new PatchError(
+      "ANCHOR_MISMATCH",
+      "The supported bundle anchors did not expose the expected identifiers.",
+    );
+  }
+  const forwardOffset = cleanAnchor[0].indexOf("this.pendingMcpRequests");
+  if (forwardOffset < 0 || cleanAnchor.index == null) {
+    throw new PatchError("ANCHOR_MISMATCH", "The request bridge forwarder was not found.");
+  }
+  const injection =
+    `let ${PATCH_CWD_VARIABLE}=${workspaceHelper}();` +
+    `${method}==="thread/list"&&${PATCH_CWD_VARIABLE}.length>0&&` +
+    `(${params}={...${params},cwd:${PATCH_CWD_VARIABLE}});` +
+    `/*${PATCH_MARKER}*/`;
+  const replacement = `${cleanAnchor[0].slice(0, forwardOffset)}${injection}${cleanAnchor[0].slice(forwardOffset)}`;
+  const patched =
+    source.slice(0, cleanAnchor.index) +
+    replacement +
+    source.slice(cleanAnchor.index + cleanAnchor[0].length);
   const after = inspectPatchStructure(patched);
   if (!after.validPatched) {
     throw new PatchError(

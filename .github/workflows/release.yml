@@ -115,3 +115,41 @@ jobs:
               --generate-notes \
               --title "$TAG"
           fi
+
+      - name: Verify the public package and release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          public_version=""
+          for attempt in {1..30}; do
+            public_version="$(npm view "codex-vscode-project-patch@$RELEASE_VERSION" version --registry=https://registry.npmjs.org/ 2>/dev/null || true)"
+            test "$public_version" = "$RELEASE_VERSION" && break
+            sleep 5
+          done
+          test "$public_version" = "$RELEASE_VERSION"
+
+          verification_dir="$(mktemp -d)"
+          npm exec --yes \
+            --cache "$verification_dir/npm-cache" \
+            --package="codex-vscode-project-patch@$RELEASE_VERSION" \
+            -- codex-vscode-project-patch --version \
+            > "$verification_dir/version.txt"
+          test "$(tr -d '\r\n' < "$verification_dir/version.txt")" = "$RELEASE_VERSION"
+
+          artifact_name="codex-vscode-project-patch-${RELEASE_VERSION}.tgz"
+          curl --fail --silent --show-error --location --retry 10 --retry-all-errors --retry-delay 3 \
+            "https://registry.npmjs.org/codex-vscode-project-patch/-/${artifact_name}" \
+            --output "$verification_dir/npm.tgz"
+          curl --fail --silent --show-error --location --retry 10 --retry-all-errors --retry-delay 3 \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${artifact_name}" \
+            --output "$verification_dir/release.tgz"
+          curl --fail --silent --show-error --location --retry 10 --retry-all-errors --retry-delay 3 \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/SHA256SUMS.txt" \
+            --output "$verification_dir/SHA256SUMS.txt"
+          cmp "$verification_dir/npm.tgz" "$verification_dir/release.tgz"
+          expected_hash="$(awk -v name="$artifact_name" '$2 == name { print $1 }' "$verification_dir/SHA256SUMS.txt")"
+          actual_hash="$(sha256sum "$verification_dir/release.tgz" | cut -d ' ' -f1)"
+          test -n "$expected_hash"
+          test "$actual_hash" = "$expected_hash"
+          test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
