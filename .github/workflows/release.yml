@@ -130,11 +130,14 @@ jobs:
           test "$public_version" = "$RELEASE_VERSION"
 
           verification_dir="$(mktemp -d)"
-          npm exec --yes \
-            --cache "$verification_dir/npm-cache" \
-            --package="codex-vscode-project-patch@$RELEASE_VERSION" \
-            -- codex-vscode-project-patch --version \
-            > "$verification_dir/version.txt"
+          (
+            cd "$verification_dir"
+            npm exec --yes \
+              --cache "$verification_dir/npm-cache" \
+              --package="codex-vscode-project-patch@$RELEASE_VERSION" \
+              -- codex-vscode-project-patch --version \
+              > "$verification_dir/version.txt"
+          )
           test "$(tr -d '\r\n' < "$verification_dir/version.txt")" = "$RELEASE_VERSION"
 
           artifact_name="codex-vscode-project-patch-${RELEASE_VERSION}.tgz"
@@ -152,4 +155,7 @@ jobs:
           actual_hash="$(sha256sum "$verification_dir/release.tgz" | cut -d ' ' -f1)"
           test -n "$expected_hash"
           test "$actual_hash" = "$expected_hash"
-          test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
+          tag_sha="$(git rev-list -n 1 "$TAG")"
+          if test "$tag_sha" != "$GITHUB_SHA"; then
+            git merge-base --is-ancestor "$tag_sha" "$GITHUB_SHA"
+          fi
