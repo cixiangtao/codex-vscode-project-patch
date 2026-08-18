@@ -142,11 +142,26 @@ export function resolveCommand(command: string | undefined): string {
 }
 
 function detailRow(label: string, value: string, colors: ColorPalette): string {
-  return `  ${colors.dim(label.padEnd(12))}${value}`;
+  return `  ${colors.dim(label.padEnd(14))}${value}`;
 }
 
 function sectionHeading(label: string, tone: ColorTone, colors: ColorPalette): string {
   return colors.bold(colors[tone](label));
+}
+
+function versionInformation(version: string, colors: ColorPalette): string[] {
+  return [
+    sectionHeading("Version information", "cyan", colors),
+    detailRow("Patch tool", `${TOOL_NAME}@${TOOL_VERSION}`, colors),
+    detailRow("Codex plugin", `openai.chatgpt@${version}`, colors),
+  ];
+}
+
+function pluginVersionFromDetails(details: unknown): string | undefined {
+  if (details == null || typeof details !== "object" || !("version" in details)) {
+    return undefined;
+  }
+  return typeof details.version === "string" ? details.version : undefined;
 }
 
 function reloadInstructions(platform: NodeJS.Platform, colors: ColorPalette): string[] {
@@ -165,8 +180,9 @@ function formatApply(result: ApplyResult, platform: NodeJS.Platform, colors: Col
     return [
       `${colors.green("✓")} ${colors.bold("Preflight passed — no files changed")}`,
       "",
-      sectionHeading("Extension", "cyan", colors),
-      detailRow("Version", `openai.chatgpt@${status.version}`, colors),
+      ...versionInformation(status.version, colors),
+      "",
+      sectionHeading("Codex plugin", "cyan", colors),
       detailRow("State", status.state, colors),
       detailRow("SHA-256", status.currentHash, colors),
       "",
@@ -181,8 +197,9 @@ function formatApply(result: ApplyResult, platform: NodeJS.Platform, colors: Col
   return [
     `${colors.green("✓")} ${colors.bold(title)}`,
     "",
-    sectionHeading("Extension", "cyan", colors),
-    detailRow("Version", `openai.chatgpt@${status.version}`, colors),
+    ...versionInformation(status.version, colors),
+    "",
+    sectionHeading("Codex plugin", "cyan", colors),
     detailRow("State", status.state, colors),
     detailRow("Filter", "current workspace folders", colors),
     detailRow("Backup", status.backupPath ?? result.backupPath ?? "not available", colors),
@@ -211,8 +228,9 @@ function formatStatus(status: PatchStatus, colors: ColorPalette): string {
   const lines = [
     statusTitle(status, colors),
     "",
-    sectionHeading("Extension", "cyan", colors),
-    detailRow("Version", `openai.chatgpt@${status.version}`, colors),
+    ...versionInformation(status.version, colors),
+    "",
+    sectionHeading("Codex plugin", "cyan", colors),
     detailRow("State", status.state, colors),
     detailRow("SHA-256", status.currentHash, colors),
     detailRow("Entry", status.bundlePath, colors),
@@ -239,8 +257,9 @@ function formatRestore(
   return [
     `${colors.green("✓")} ${colors.bold(title)}`,
     "",
-    sectionHeading("Extension", "cyan", colors),
-    detailRow("Version", `openai.chatgpt@${status.version}`, colors),
+    ...versionInformation(status.version, colors),
+    "",
+    sectionHeading("Codex plugin", "cyan", colors),
     detailRow("State", status.state, colors),
     detailRow("SHA-256", status.currentHash, colors),
     "",
@@ -270,8 +289,17 @@ export function formatHumanError(
   error: NormalizedError,
   { colors = pc }: Pick<HumanFormatOptions, "colors"> = {},
 ): string {
-  return [
+  const lines = [
     `${colors.red("✖")} ${colors.bold("Command could not be completed")}`,
+    "",
+    sectionHeading("Version information", "cyan", colors),
+    detailRow("Patch tool", `${TOOL_NAME}@${TOOL_VERSION}`, colors),
+  ];
+  const pluginVersion = pluginVersionFromDetails(error.details);
+  if (pluginVersion) {
+    lines.push(detailRow("Codex plugin", `openai.chatgpt@${pluginVersion}`, colors));
+  }
+  lines.push(
     "",
     colors.bold("Reason"),
     `  ${error.message}`,
@@ -280,7 +308,15 @@ export function formatHumanError(
     `  ${colors.cyan(NPX_STATUS)}`,
     "",
     colors.dim("Safety checks refuse unknown versions, hashes, and modified bundles."),
-  ].join("\n");
+  );
+  return lines.join("\n");
+}
+
+function outputEnvelope(payload: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...payload,
+    tool: { name: TOOL_NAME, version: TOOL_VERSION },
+  };
 }
 
 function printJson(payload: unknown): void {
@@ -315,8 +351,9 @@ export async function runCli(argv: string[]): Promise<void> {
       result = await restorePatch(options);
     }
 
-    if (options.json) printJson({ ok: true, command: effectiveCommand, result });
-    else process.stdout.write(`${formatHuman(effectiveCommand as CommandName, result)}\n`);
+    if (options.json) {
+      printJson(outputEnvelope({ ok: true, command: effectiveCommand, result }));
+    } else process.stdout.write(`${formatHuman(effectiveCommand as CommandName, result)}\n`);
   } catch (error) {
     const normalized = {
       code: error instanceof PatchError ? error.code : "UNEXPECTED_ERROR",
@@ -326,7 +363,7 @@ export async function runCli(argv: string[]): Promise<void> {
         : {}),
     };
     if (parsed?.options?.json || argv.includes("--json")) {
-      printJson({ ok: false, error: normalized });
+      printJson(outputEnvelope({ ok: false, error: normalized }));
     } else {
       process.stderr.write(`${formatHumanError(normalized)}\n`);
     }

@@ -181,6 +181,10 @@ Success:
     "state": "clean",
     "patchable": true,
     "restorable": false
+  },
+  "tool": {
+    "name": "codex-vscode-project-patch",
+    "version": "0.3.1"
   }
 }
 ```
@@ -193,9 +197,18 @@ Failure is JSON on stdout with a non-zero exit code:
   "error": {
     "code": "UNSUPPORTED_BUNDLE",
     "message": "Refusing to patch an unknown bundle."
+  },
+  "tool": {
+    "name": "codex-vscode-project-patch",
+    "version": "0.3.1"
   }
 }
 ```
+
+Human-readable `apply`, `status`, and `restore` output identifies both the patch
+tool version and the detected `openai.chatgpt` plugin version. Failures include
+the detected plugin version when discovery completed before the safety check
+stopped the command.
 
 Useful states are `clean`, `patched`, `restored`, `patched-unmanaged`,
 `inconsistent`, `modified-or-unknown-hash`, and `unsupported-version`.
