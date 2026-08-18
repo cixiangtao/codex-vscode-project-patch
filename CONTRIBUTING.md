@@ -41,6 +41,12 @@ pnpm pack:check
 - Do not include an official OpenAI VSIX, extension bundle, or extracted
   proprietary assets in commits, fixtures, issues, or pull requests.
 
+Routine macOS compatibility updates are proposed, checked, merged, and released
+by the scheduled workflow. Branch protection and all required CI still apply;
+the workflow cannot approve or bypass its own checks. A failed scheduled check
+is evidence that the patch or protocol needs manual analysis, not a reason to
+bypass the allowlist.
+
 ## Reporting compatibility data
 
 Hashes, extension versions, structural anchors, and reduced synthetic fixtures

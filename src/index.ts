@@ -9,6 +9,7 @@ export {
   restorePatch,
   sha256,
 } from "./core.js";
+export { KNOWN_BUNDLES } from "./constants.js";
 
 export type {
   ApplyOptions,

@@ -1,0 +1,191 @@
+name: Update Codex extension compatibility
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  actions: write
+  contents: write
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: update-codex-extension-compatibility
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Check official macOS extension builds
+    if: github.repository == 'cixiangtao/codex-vscode-project-patch'
+    runs-on: macos-14
+    steps:
+      - name: Check out main
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 24.11.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check Marketplace and validate a new build
+        id: compatibility
+        run: pnpm compatibility:update
+
+      - name: Prepare a package update
+        if: steps.compatibility.outputs.changed == 'true'
+        id: package
+        env:
+          EXTENSION_VERSION: ${{ steps.compatibility.outputs.extension-version }}
+        run: |
+          next_version="$(node --input-type=module <<'NODE'
+          import { readFile, writeFile } from "node:fs/promises";
+          const manifest = JSON.parse(await readFile("package.json", "utf8"));
+          const parts = manifest.version.split(".").map(Number);
+          if (parts.length !== 3 || parts.some((part) => !Number.isSafeInteger(part))) {
+            throw new Error(`Cannot increment non-semver package version: ${manifest.version}`);
+          }
+          parts[2] += 1;
+          manifest.version = parts.join(".");
+          await writeFile("package.json", `${JSON.stringify(manifest, null, 2)}\n`);
+          process.stdout.write(manifest.version);
+          NODE
+          )"
+          pnpm format
+          pnpm release:check
+          printf 'package-version=%s\n' "$next_version" >> "$GITHUB_OUTPUT"
+          printf 'extension-version=%s\n' "$EXTENSION_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and open the compatibility update
+        if: steps.compatibility.outputs.changed == 'true'
+        id: pull-request
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EXTENSION_VERSION: ${{ steps.package.outputs.extension-version }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.package-version }}
+        run: |
+          title="chore: support Codex VS Code ${EXTENSION_VERSION}"
+          existing_pr="$(gh pr list --state open --search "${title} in:title" --json number,headRefName,headRefOid --jq '.[0] // empty')"
+          if test -n "$existing_pr"; then
+            pr_number="$(jq -r '.number' <<<"$existing_pr")"
+            branch="$(jq -r '.headRefName' <<<"$existing_pr")"
+            head_sha="$(jq -r '.headRefOid' <<<"$existing_pr")"
+            printf 'pr-number=%s\n' "$pr_number" >> "$GITHUB_OUTPUT"
+            printf 'branch=%s\n' "$branch" >> "$GITHUB_OUTPUT"
+            printf 'head-sha=%s\n' "$head_sha" >> "$GITHUB_OUTPUT"
+            echo "Resuming compatibility pull request #${pr_number}."
+            exit 0
+          fi
+
+          version_slug="$(printf '%s' "$EXTENSION_VERSION" | tr '.' '-')"
+          branch="automation/codex-compatibility-${version_slug}-${GITHUB_RUN_ID}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git add compatibility/bundles.json .github/README.md package.json src test scripts
+          git diff --cached --check
+          git commit -m "$title"
+          git push origin "HEAD:${branch}"
+
+          body_file="$(mktemp -t codex-compatibility-pr.XXXXXX)"
+          cat > "$body_file" <<EOF
+          ## Summary
+
+          - add the verified macOS ARM64/x64 bundle hash for \`openai.chatgpt@${EXTENSION_VERSION}\`
+          - bump this package to \`${PACKAGE_VERSION}\`
+          - keep npm publication inside the existing Actions-owned release workflow
+
+          ## Automated verification
+
+          - official Marketplace identity and matching macOS release pair
+          - exact clean bundle hashes; no VSIX or extracted proprietary file committed
+          - one supported request bridge and one workspace helper per bundle
+          - transformed JavaScript syntax
+          - bundled \`ThreadListParams.cwd\` string/string-array exact-match contract
+          - \`pnpm release:check\`
+
+          This pull request is merged and released automatically only after all protected-branch checks pass. A structural or protocol change stops before this PR is created.
+          EOF
+          pr_url="$(gh pr create --base main --head "$branch" --title "$title" --body-file "$body_file")"
+          pr_number="$(gh pr view "$pr_url" --json number --jq '.number')"
+          head_sha="$(git rev-parse HEAD)"
+          printf 'pr-number=%s\n' "$pr_number" >> "$GITHUB_OUTPUT"
+          printf 'branch=%s\n' "$branch" >> "$GITHUB_OUTPUT"
+          printf 'head-sha=%s\n' "$head_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Run required CI and merge
+        if: steps.compatibility.outputs.changed == 'true'
+        id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ steps.pull-request.outputs.pr-number }}
+          PR_BRANCH: ${{ steps.pull-request.outputs.branch }}
+          PR_HEAD_SHA: ${{ steps.pull-request.outputs.head-sha }}
+        run: |
+          gh workflow run ci.yml --ref "$PR_BRANCH"
+
+          ci_run_id=""
+          for attempt in {1..30}; do
+            ci_run_id="$(gh run list --workflow ci.yml --event workflow_dispatch --branch "$PR_BRANCH" --limit 30 --json databaseId,headSha --jq ".[] | select(.headSha == \"$PR_HEAD_SHA\") | .databaseId" | head -n 1)"
+            test -n "$ci_run_id" && break
+            sleep 2
+          done
+          test -n "$ci_run_id"
+          gh run watch "$ci_run_id" --exit-status
+          gh pr checks "$PR_NUMBER" --required
+          gh pr merge "$PR_NUMBER" --squash --delete-branch
+
+          pr_state="$(gh pr view "$PR_NUMBER" --json state --jq '.state')"
+          merge_sha="$(gh pr view "$PR_NUMBER" --json mergeCommit --jq '.mergeCommit.oid')"
+          test "$pr_state" = "MERGED"
+          test -n "$merge_sha"
+          printf 'merge-sha=%s\n' "$merge_sha" >> "$GITHUB_OUTPUT"
+
+      - name: Publish and verify the package
+        if: steps.compatibility.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MERGE_SHA: ${{ steps.merge.outputs.merge-sha }}
+          PACKAGE_VERSION: ${{ steps.package.outputs.package-version }}
+        run: |
+          remote_main_sha=""
+          for attempt in {1..30}; do
+            remote_main_sha="$(git ls-remote origin refs/heads/main | cut -f1)"
+            test "$remote_main_sha" = "$MERGE_SHA" && break
+            sleep 2
+          done
+          test "$remote_main_sha" = "$MERGE_SHA"
+
+          gh workflow run release.yml --ref main -f "version=${PACKAGE_VERSION}"
+          release_run_id=""
+          for attempt in {1..30}; do
+            release_run_id="$(gh run list --workflow release.yml --event workflow_dispatch --branch main --limit 30 --json databaseId,headSha --jq ".[] | select(.headSha == \"$MERGE_SHA\") | .databaseId" | head -n 1)"
+            test -n "$release_run_id" && break
+            sleep 2
+          done
+          test -n "$release_run_id"
+          gh run watch "$release_run_id" --exit-status
+
+      - name: Report a blocked compatibility update
+        if: failure()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Scheduled Codex compatibility update failed"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          body="The scheduled compatibility gate stopped without changing the allowlist. Inspect ${run_url}. Unknown hashes or changed bundle/protocol structure remain unsupported until reviewed."
+          issue_number="$(gh issue list --state open --search "${title} in:title" --json number --jq '.[0].number // empty')"
+          if test -n "$issue_number"; then
+            gh issue comment "$issue_number" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
