@@ -15,10 +15,10 @@ import {
   sha256,
 } from "../src/core.js";
 import {
-  ORIGINAL_REQUEST_ANCHOR,
+  LEGACY_PATCHED_REQUEST_ANCHOR,
+  PATCH_CWD_VARIABLE,
   PATCH_MARKER,
   TOOL_VERSION,
-  WORKSPACE_HELPER_ANCHORS,
 } from "../src/constants.js";
 import { formatHuman, formatHumanError, parseArguments, resolveCommand } from "../src/cli.js";
 
@@ -73,10 +73,9 @@ function cleanFixture() {
   return [
     '"use strict";',
     "switch(x){",
-    ORIGINAL_REQUEST_ANCHOR,
+    'case"mcp-request":{let{id:n,method:o,params:i}=r.request;this.pendingMcpRequests.set(String(n),e),this.codexMcpConnection.sendRequest(L1,String(n),o,i);',
     "break;}}",
-    WORKSPACE_HELPER_ANCHORS[0],
-    `let t=HRe${WORKSPACE_HELPER_ANCHORS[1]}r=>r.uri.fsPath)??[];${WORKSPACE_HELPER_ANCHORS[2]}t.map(ar):t}`,
+    "function Cb(){let t=HRe.workspace.workspaceFolders?.map(r=>r.uri.fsPath)??[];return fr()?t.map(ar):t}",
   ].join("");
 }
 
@@ -106,17 +105,42 @@ async function createFixture() {
 
 test("patchBundle injects cwd filtering exactly once", () => {
   const patched = patchBundle(cleanFixture());
-  assert.match(patched, /o==="thread\/list"&&s\.length>0/);
-  assert.match(patched, /cwd:s/);
+  assert.match(patched, new RegExp(`o==="thread/list"&&${PATCH_CWD_VARIABLE}\\.length>0`));
+  assert.match(patched, new RegExp(`cwd:${PATCH_CWD_VARIABLE}`));
+  assert.match(patched, new RegExp(`${PATCH_CWD_VARIABLE}=Cb\\(\\)`));
   assert.equal(patched.includes(PATCH_MARKER), true);
   assert.equal(inspectPatchStructure(patched).validPatched, true);
 });
 
 test("patchBundle rejects ambiguous anchors", () => {
+  const duplicate =
+    'case"mcp-request":{let{id:a,method:b,params:c}=d.request;this.pendingMcpRequests.set(String(a),e),this.codexMcpConnection.sendRequest(F1,String(a),b,c);';
   assert.throws(
-    () => patchBundle(`${cleanFixture()}${ORIGINAL_REQUEST_ANCHOR}`),
+    () => patchBundle(`${cleanFixture()}${duplicate}`),
     (error) => error instanceof PatchError && error.code === "ANCHOR_MISMATCH",
   );
+});
+
+test("patchBundle follows minified identifier changes without weakening structure checks", () => {
+  const source =
+    '"use strict";switch(x){case"mcp-request":{let{id:n,method:o,params:i}=r.request;' +
+    "this.pendingMcpRequests.set(String(n),e)," +
+    "this.codexMcpConnection.sendRequest(z1,String(n),o,i);break;}}" +
+    "function kb(){let t=hEe.workspace.workspaceFolders?.map(r=>r.uri.fsPath)??[];" +
+    "return hr()?t.map(cr):t}";
+  const patched = patchBundle(source);
+  assert.match(patched, new RegExp(`${PATCH_CWD_VARIABLE}=kb\\(\\)`));
+  assert.equal(inspectPatchStructure(patched).validPatched, true);
+});
+
+test("the current CLI still recognizes patches written by 0.2.1", () => {
+  const legacyPatched = cleanFixture().replace(
+    'case"mcp-request":{let{id:n,method:o,params:i}=r.request;this.pendingMcpRequests.set(String(n),e),this.codexMcpConnection.sendRequest(L1,String(n),o,i);',
+    LEGACY_PATCHED_REQUEST_ANCHOR,
+  );
+  const structure = inspectPatchStructure(legacyPatched);
+  assert.equal(structure.validPatched, true);
+  assert.equal(structure.patchedAnchorCount, 1);
 });
 
 test("status, apply, idempotent apply, and restore round trip", async () => {
@@ -156,6 +180,8 @@ test("human apply output includes reload, restore, and backup guidance", async (
     colors: noColors,
   });
   assert.match(output, /Workspace task filter enabled/);
+  assert.match(output, new RegExp(`Patch tool\\s+codex-vscode-project-patch@${TOOL_VERSION}`));
+  assert.match(output, new RegExp(`Codex plugin\\s+openai\\.chatgpt@${FIXTURE_VERSION}`));
   assert.match(output, /reload required/i);
   assert.match(output, /Developer: Reload Window/);
   assert.match(output, /npx -y codex-vscode-project-patch restore/);
@@ -179,7 +205,8 @@ test("human apply output gives each information section a distinct color", async
     colors: semanticColors,
   });
 
-  assert.match(output, /<cyan>Extension<\/cyan>/);
+  assert.match(output, /<cyan>Version information<\/cyan>/);
+  assert.match(output, /<cyan>Codex plugin<\/cyan>/);
   assert.match(output, /<yellow>Next steps — reload required<\/yellow>/);
   assert.match(output, /<magenta>Restore the official file<\/magenta>/);
 });
@@ -193,11 +220,21 @@ test("human restore and error output include the next safe command", async () =>
     colors: noColors,
   });
   assert.match(restoreOutput, /Official Codex extension file restored/);
+  assert.match(
+    restoreOutput,
+    new RegExp(`Patch tool\\s+codex-vscode-project-patch@${TOOL_VERSION}`),
+  );
+  assert.match(restoreOutput, new RegExp(`Codex plugin\\s+openai\\.chatgpt@${FIXTURE_VERSION}`));
   assert.match(restoreOutput, /Developer: Reload Window/);
   assert.match(restoreOutput, /npx -y codex-vscode-project-patch$/m);
 
-  const errorOutput = formatHumanError({ message: "Unsupported bundle" }, { colors: noColors });
+  const errorOutput = formatHumanError(
+    { message: "Unsupported bundle", details: { version: FIXTURE_VERSION } },
+    { colors: noColors },
+  );
   assert.match(errorOutput, /Command could not be completed/);
+  assert.match(errorOutput, new RegExp(`Patch tool\\s+codex-vscode-project-patch@${TOOL_VERSION}`));
+  assert.match(errorOutput, new RegExp(`Codex plugin\\s+openai\\.chatgpt@${FIXTURE_VERSION}`));
   assert.match(errorOutput, /status --json/);
 });
 
