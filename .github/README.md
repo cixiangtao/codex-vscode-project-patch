@@ -17,6 +17,7 @@ The project deliberately keeps a narrow allowlist:
 | Extension version | Clean `out/extension.js` SHA-256                                   |
 | ----------------- | ------------------------------------------------------------------ |
 | `26.5814.41407`   | `bfbe07b5fcd521b743b6e548b04781ff9ed92f34da24b180c85180a92b8db8b7` |
+| `26.818.21641`    | `3d39e0b2cd1c5da48833b87c1c1889f22a3e0da76094b64d82fd843b928c33c0` |
 | `26.814.41407`    | `bfbe07b5fcd521b743b6e548b04781ff9ed92f34da24b180c85180a92b8db8b7` |
 | `26.810.52044`    | `5669921cf77b0de7e49c8e6c6ac6283baa593ccf131bef7b2eac3e1b8eeaf859` |
 | `26.810.41047`    | `5669921cf77b0de7e49c8e6c6ac6283baa593ccf131bef7b2eac3e1b8eeaf859` |
