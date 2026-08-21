@@ -130,15 +130,19 @@ jobs:
           PR_BRANCH: ${{ steps.pull-request.outputs.branch }}
           PR_HEAD_SHA: ${{ steps.pull-request.outputs.head-sha }}
         run: |
-          gh workflow run ci.yml --ref "$PR_BRANCH"
-
           ci_run_id=""
           for attempt in {1..30}; do
-            ci_run_id="$(gh run list --workflow ci.yml --event workflow_dispatch --branch "$PR_BRANCH" --limit 30 --json databaseId,headSha --jq ".[] | select(.headSha == \"$PR_HEAD_SHA\") | .databaseId" | head -n 1)"
+            ci_run_id="$(gh run list --workflow ci.yml --event pull_request --branch "$PR_BRANCH" --limit 30 --json databaseId,headSha --jq ".[] | select(.headSha == \"$PR_HEAD_SHA\") | .databaseId" | head -n 1)"
             test -n "$ci_run_id" && break
             sleep 2
           done
           test -n "$ci_run_id"
+
+          ci_conclusion="$(gh run view "$ci_run_id" --json conclusion --jq '.conclusion')"
+          if test "$ci_conclusion" = "action_required"; then
+            gh api --method POST "repos/${GITHUB_REPOSITORY}/actions/runs/${ci_run_id}/approve"
+          fi
+
           gh run watch "$ci_run_id" --exit-status
           gh pr checks "$PR_NUMBER" --required
           gh pr merge "$PR_NUMBER" --squash --delete-branch

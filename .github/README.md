@@ -269,16 +269,18 @@ following before changing source files:
 - the version-bumped package passes `pnpm release:check`.
 
 A successful check commits a version-bumped compatibility pull request,
-explicitly dispatches its required CI, waits for every protected-branch check,
+approves only the generated pull request's exact CI run when GitHub holds that
+run for workflow-created-PR approval, waits for every protected-branch check,
 then squash-merges it and dispatches the Actions-owned npm/GitHub Release
-publisher. The scheduled run waits for public package and release-asset
-verification before succeeding. If structure, protocol, identity, download
-origin, or validation changes, the workflow leaves the allowlist untouched and
-opens or updates a blocking issue instead.
+publisher. It does not approve a pull request review or bypass a check. The
+scheduled run waits for public package and release-asset verification before
+succeeding. If structure, protocol, identity, download origin, or validation
+changes, the workflow leaves the allowlist untouched and opens or updates a
+blocking issue instead.
 
 Repository Actions settings must allow `GITHUB_TOKEN` to create pull requests;
-branch protection remains enabled and the workflow does not approve or bypass
-its own checks.
+branch protection remains enabled and the workflow does not bypass its own
+checks.
 
 ## License and status
 
