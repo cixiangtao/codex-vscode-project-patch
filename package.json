@@ -1,6 +1,6 @@
 {
   "name": "codex-vscode-project-patch",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "description": "Locally patch the official OpenAI Codex VS Code extension task list to filter by the active workspace.",
   "keywords": [
     "codex",
