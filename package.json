@@ -49,11 +49,13 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build && pnpm vscode:check",
     "pack:check": "pnpm pack --pack-destination .artifacts",
     "compatibility:update": "pnpm build && node scripts/update-compatibility.mjs",
-    "release:check": "pnpm check && pnpm pack:check",
-    "prepack": "pnpm build"
+    "release:check": "pnpm check && pnpm pack:check && pnpm vscode:package",
+    "prepack": "pnpm build",
+    "vscode:check": "pnpm --dir packages/vscode check",
+    "vscode:package": "pnpm --dir packages/vscode package --out ../../.artifacts/codex-patch.vsix"
   },
   "dependencies": {
     "commander": "^14.0.3",

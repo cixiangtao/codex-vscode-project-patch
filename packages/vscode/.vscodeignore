@@ -1,0 +1,6 @@
+src/**
+test/**
+tsconfig.json
+tsdown.config.ts
+vitest.config.ts
+*.vsix

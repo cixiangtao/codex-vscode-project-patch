@@ -35,10 +35,14 @@ helpers, and ambiguous patch anchors are refused.
 Applying the patch is one command:
 
 ```bash
-npx -y codex-vscode-project-patch
+npx --yes --prefer-online codex-vscode-project-patch@latest
 ```
 
-No global installation and no separate status or dry-run step are required.
+The explicit `@latest` selects npm's current published release, while
+`--prefer-online` forces an immediate freshness check on every run. `--yes`
+only accepts npm's install prompt; it does not mean "update to the latest
+version." No global installation and no separate status or dry-run step are
+required.
 With no subcommand, the CLI defaults to `apply` and performs discovery,
 compatibility checks, backup, atomic patching, and post-patch verification as
 one transaction. Running it again is safe: an already managed patch is reported
@@ -62,9 +66,9 @@ Next steps — reload required
      It will be filtered to the current workspace folders.
 
 Restore the official file
-  npx -y codex-vscode-project-patch restore
+  npx --yes --prefer-online codex-vscode-project-patch@latest restore
 
-Inspect details: npx -y codex-vscode-project-patch status --json
+Inspect details: npx --yes --prefer-online codex-vscode-project-patch@latest status --json
 ```
 
 The same guidance is printed when the patch is already active, so rerunning the
@@ -80,8 +84,40 @@ again. If the new build is not allowlisted, it stops without modifying anything.
 To remove the patch without installing the CLI globally:
 
 ```bash
-npx -y codex-vscode-project-patch restore
+npx --yes --prefer-online codex-vscode-project-patch@latest restore
 ```
+
+## Codex Patch companion extension
+
+`packages/vscode` contains **Codex Patch**, an unofficial companion extension
+that removes the manual repair step after compatible official Codex updates.
+It listens for installed-extension changes, performs a fallback periodic check,
+and refreshes the reviewed compatibility registry with a short local cache.
+
+The default `codexPatch.repairMode` is `prompt`. Choosing **Always Repair
+Automatically** changes it to `auto`; `off` keeps status reporting enabled but
+never writes automatically. A successful repair offers one **Restart
+Extensions** action. Unknown versions, unknown hashes, modified bundles, and
+unmanaged patches remain untouched.
+
+Install the published extension from the Visual Studio Marketplace:
+
+```bash
+code --install-extension cixiangtao.codex-patch
+```
+
+For development, build and install the local VSIX:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm vscode:package
+code --install-extension .artifacts/codex-patch.vsix
+```
+
+The extension and CLI share `src/core.ts`; they do not maintain separate patch,
+backup, restore, or rollback implementations. The extension uses a UI extension
+host so it monitors the local VS Code installation rather than a remote
+workspace host. The CLI remains the headless and recovery surface.
 
 ## Development and advanced use
 
@@ -109,6 +145,8 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm pack:check
+pnpm vscode:check
+pnpm vscode:package
 ```
 
 `pnpm release:check` runs the complete local gate without publishing. The
@@ -122,6 +160,10 @@ The main source boundaries are:
 - `src/core.ts`: discovery, compatibility, patch, backup, and restore logic
 - `src/index.ts`: public package exports
 - `test/core.test.ts`: synthetic bundle and CLI contract tests
+- `packages/vscode/src/extension.ts`: VS Code lifecycle, commands, notifications,
+  and status bar
+- `packages/vscode/src/guardian.ts`: editor-independent repair orchestration
+- `packages/vscode/src/registry.ts`: validated compatibility refresh and cache
 
 The default target is the newest valid `openai.chatgpt` directory under VS Code's
 extension folders. Override it when needed:

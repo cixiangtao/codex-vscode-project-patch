@@ -1,0 +1,116 @@
+{
+  "name": "codex-patch",
+  "displayName": "Codex Patch",
+  "version": "0.1.0",
+  "description": "Automatically keeps the Codex workspace task filter active after extension updates.",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "codex",
+    "patch",
+    "workspace"
+  ],
+  "homepage": "https://github.com/cixiangtao/codex-vscode-project-patch",
+  "bugs": {
+    "url": "https://github.com/cixiangtao/codex-vscode-project-patch/issues"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/cixiangtao/codex-vscode-project-patch.git",
+    "directory": "packages/vscode"
+  },
+  "publisher": "cixiangtao",
+  "type": "module",
+  "main": "./dist/extension.cjs",
+  "scripts": {
+    "build": "tsdown",
+    "dev": "tsdown --watch",
+    "format": "oxfmt --write .",
+    "format:check": "oxfmt --check .",
+    "lint": "oxlint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.30",
+    "@types/vscode": "1.96.0",
+    "@vscode/vsce": "3.9.2",
+    "oxfmt": "^0.63.0",
+    "oxlint": "^1.78.0",
+    "tsdown": "^0.22.14",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.10"
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "codexPatch.checkNow",
+        "title": "Codex Patch: Check Now"
+      },
+      {
+        "command": "codexPatch.repairNow",
+        "title": "Codex Patch: Repair Now"
+      },
+      {
+        "command": "codexPatch.restore",
+        "title": "Codex Patch: Restore Official Extension"
+      },
+      {
+        "command": "codexPatch.showStatus",
+        "title": "Codex Patch: Show Status"
+      }
+    ],
+    "configuration": {
+      "title": "Codex Patch",
+      "properties": {
+        "codexPatch.repairMode": {
+          "type": "string",
+          "enum": [
+            "prompt",
+            "auto",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Ask before repairing a compatible Codex extension update.",
+            "Repair compatible Codex extension updates automatically.",
+            "Only report status; never repair automatically."
+          ],
+          "default": "prompt",
+          "description": "Controls how Codex Patch responds to compatible Codex extension updates."
+        },
+        "codexPatch.checkIntervalMinutes": {
+          "type": "number",
+          "default": 10,
+          "minimum": 1,
+          "maximum": 1440,
+          "description": "Fallback interval for checking Codex extension and compatibility updates."
+        }
+      }
+    }
+  },
+  "activationEvents": [
+    "onCommand:codexPatch.checkNow",
+    "onCommand:codexPatch.repairNow",
+    "onCommand:codexPatch.restore",
+    "onCommand:codexPatch.showStatus",
+    "onStartupFinished"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "engines": {
+    "vscode": "^1.96.2"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": {
+      "supported": true
+    }
+  }
+}

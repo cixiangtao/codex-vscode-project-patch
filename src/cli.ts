@@ -52,7 +52,7 @@ interface NormalizedError {
 }
 
 const COMMANDS = new Set<string>(["status", "doctor", "apply", "restore"]);
-const NPX_APPLY = `npx -y ${TOOL_NAME}`;
+const NPX_APPLY = `npx --yes --prefer-online ${TOOL_NAME}@latest`;
 const NPX_RESTORE = `${NPX_APPLY} restore`;
 const NPX_STATUS = `${NPX_APPLY} status --json`;
 

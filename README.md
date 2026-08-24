@@ -8,8 +8,12 @@ redistributing OpenAI's extension or VSIX.
 Requires Node.js 20 or newer and an installed `openai.chatgpt` VS Code extension.
 
 ```bash
-npx -y codex-vscode-project-patch
+npx --yes --prefer-online codex-vscode-project-patch@latest
 ```
+
+The explicit `@latest` selects npm's current release tag, while
+`--prefer-online` forces an immediate freshness check. `--yes` only accepts
+npm's install prompt; it does not update an already available command by itself.
 
 The default command discovers the extension, checks its version and bundle hash,
 creates a verified backup, applies the patch atomically, and verifies the result.
@@ -24,22 +28,39 @@ After a successful run, reload VS Code:
 Restore the official file at any time:
 
 ```bash
-npx -y codex-vscode-project-patch restore
+npx --yes --prefer-online codex-vscode-project-patch@latest restore
 ```
 
 Inspect the installation without changing it:
 
 ```bash
-npx -y codex-vscode-project-patch status
-npx -y codex-vscode-project-patch status --json
+npx --yes --prefer-online codex-vscode-project-patch@latest status
+npx --yes --prefer-online codex-vscode-project-patch@latest status --json
 ```
 
 Supported extension versions and bundle hashes are deliberately allowlisted.
 An official extension update may remove the patch; rerun the same `npx` command.
 If the new bundle is unknown, the CLI exits without modifying it.
 
-The repository checks the official macOS ARM64/x64 Marketplace builds every six
-hours. A compatible new build is fully validated, committed through a protected
+## Automatic update repair
+
+Install **Codex Patch**, the unofficial companion VS Code extension:
+
+```bash
+code --install-extension cixiangtao.codex-patch
+```
+
+It detects official Codex extension updates, refreshes the reviewed
+compatibility registry, and reuses the same fail-closed Core to repair a
+compatible clean bundle before the user restarts extensions. Unknown or
+modified bundles are never changed.
+
+The default repair mode asks first. Choose **Always Repair Automatically** once
+to make future compatible updates require only a single **Restart Extensions**.
+The CLI remains available for diagnostics, recovery, and headless use.
+
+The repository checks the official macOS ARM64/x64 Marketplace builds every
+hour. A compatible new build is fully validated, committed through a protected
 pull request, merged after required CI, and published through the Actions-owned
 npm/GitHub Release workflow. Changed request structure or
 `ThreadListParams.cwd` semantics stop the automation and create a review issue.
