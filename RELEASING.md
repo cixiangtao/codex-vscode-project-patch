@@ -8,10 +8,40 @@ only publication authority; local commands validate and pack but never publish.
 - **Version policy:** Semantic Versioning
 - **Release gate:** `pnpm release:check`
 - **Package artifact:** `.artifacts/*.tgz`, produced by `pnpm pack:check`
+- **Companion artifact:** `.artifacts/codex-patch.vsix`, produced by
+  `pnpm vscode:package` (the embedded manifest retains its exact version)
 - **Runtime support:** Node.js 20 and newer
 - **Build runtime:** Node.js 24.11 or newer
 - **Publication authority:** `.github/workflows/release.yml` on GitHub Actions
 - **Local publication:** not supported; local commands validate and pack only
+
+The npm CLI and Codex Patch extension have independent manifests, versions,
+tags, and delivery workflows. Do not bump or publish one product merely because
+the other changed.
+
+## Codex Patch extension release
+
+- **Version owner:** `packages/vscode/package.json`
+- **Tag:** `codex-patch-v<version>`
+- **Marketplace identity:** `cixiangtao.codex-patch`
+- **Publication authority:** `.github/workflows/release-vscode.yml`
+- **Credential boundary:** `VSCE_PAT` in the protected
+  `vscode-marketplace` GitHub environment
+- **GitHub Release:** non-latest release containing the verified VSIX and
+  checksum
+
+To release an admitted version from `main`, run **Release Codex Patch
+extension** with the exact manifest version. The workflow reruns the complete
+repository gate, packages and inspects the VSIX, creates or verifies the
+product-specific tag, publishes through `vsce`, downloads the public
+Marketplace artifact, compares its extension payload, and then creates the
+GitHub Release.
+
+The current stable `@vscode/vsce` publisher uses a Marketplace PAT. Scope it to
+Marketplace management, store it only in the protected environment, and rotate
+it before Microsoft's global PAT retirement deadline. Migrate the workflow to
+short-lived trusted publishing when that support is available in a stable
+`@vscode/vsce` release and the publisher policy has been configured.
 
 ## Automated compatibility release
 

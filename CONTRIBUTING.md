@@ -27,6 +27,8 @@ pnpm typecheck
 pnpm test
 pnpm build
 pnpm pack:check
+pnpm vscode:check
+pnpm vscode:package
 ```
 
 ## Pull requests
@@ -34,6 +36,12 @@ pnpm pack:check
 - Keep each change focused and explain the user-visible behavior.
 - Add or update tests when changing discovery, compatibility checks, patching,
   backup, restore, output, or package contracts.
+- Keep editor UI in `packages/vscode/src/extension.ts`; guardian policy and the
+  compatibility client must remain testable without a running VS Code process.
+- Do not duplicate patch or restore logic in the companion extension. Add shared
+  behavior to `src/core.ts` and exercise it through both surfaces.
+- Keep CLI and extension releases independent. The root manifest owns the npm
+  CLI version; `packages/vscode/package.json` owns the Marketplace version.
 - Run `pnpm release:check` before requesting review.
 - Do not add a newly observed extension build to the allowlist without tracing
   the request bridge, validating the `cwd` contract, and testing a copied

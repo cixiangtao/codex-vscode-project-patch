@@ -59,7 +59,7 @@ test("commander parses global options around the command", () => {
 test("commander returns help without exiting the process", () => {
   const parsed = parseArguments(["--help"]);
   assert.equal(parsed.handled, true);
-  assert.match(parsed.output, /npx -y codex-vscode-project-patch/);
+  assert.match(parsed.output, /npx --yes --prefer-online codex-vscode-project-patch@latest/);
 });
 
 test("commander converts unknown options to stable CLI errors", () => {
@@ -184,7 +184,7 @@ test("human apply output includes reload, restore, and backup guidance", async (
   assert.match(output, new RegExp(`Codex plugin\\s+openai\\.chatgpt@${FIXTURE_VERSION}`));
   assert.match(output, /reload required/i);
   assert.match(output, /Developer: Reload Window/);
-  assert.match(output, /npx -y codex-vscode-project-patch restore/);
+  assert.match(output, /npx --yes --prefer-online codex-vscode-project-patch@latest restore/);
   assert.match(output, new RegExp(applied.backupPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 
   const idempotent = await applyPatch(fixture);
@@ -194,7 +194,7 @@ test("human apply output includes reload, restore, and backup guidance", async (
   });
   assert.match(secondOutput, /already enabled/);
   assert.match(secondOutput, /Developer: Reload Window/);
-  assert.match(secondOutput, /codex-vscode-project-patch restore/);
+  assert.match(secondOutput, /npx --yes --prefer-online codex-vscode-project-patch@latest restore/);
 });
 
 test("human apply output gives each information section a distinct color", async () => {
@@ -226,7 +226,7 @@ test("human restore and error output include the next safe command", async () =>
   );
   assert.match(restoreOutput, new RegExp(`Codex plugin\\s+openai\\.chatgpt@${FIXTURE_VERSION}`));
   assert.match(restoreOutput, /Developer: Reload Window/);
-  assert.match(restoreOutput, /npx -y codex-vscode-project-patch$/m);
+  assert.match(restoreOutput, /npx --yes --prefer-online codex-vscode-project-patch@latest$/m);
 
   const errorOutput = formatHumanError(
     { message: "Unsupported bundle", details: { version: FIXTURE_VERSION } },

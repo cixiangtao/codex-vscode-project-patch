@@ -1,0 +1,136 @@
+name: Release Codex Patch extension
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Exact packages/vscode/package.json version to release
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-codex-patch-${{ inputs.version }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish Codex Patch v${{ inputs.version }}
+    if: >-
+      github.repository == 'cixiangtao/codex-vscode-project-patch' &&
+      github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: vscode-marketplace
+    steps:
+      - name: Check out the admitted commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@f520eceda224fe1a4aed5a2a27a194379a409996 # v6.0.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.11.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate release identity
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          extension_name="$(node --input-type=module -e "import manifest from './packages/vscode/package.json' with { type: 'json' }; process.stdout.write(manifest.name)")"
+          extension_version="$(node --input-type=module -e "import manifest from './packages/vscode/package.json' with { type: 'json' }; process.stdout.write(manifest.version)")"
+          extension_publisher="$(node --input-type=module -e "import manifest from './packages/vscode/package.json' with { type: 'json' }; process.stdout.write(manifest.publisher)")"
+          test "$extension_name" = "codex-patch"
+          test "$extension_version" = "$RELEASE_VERSION"
+          test "$extension_publisher" = "cixiangtao"
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+
+      - name: Build and verify repository
+        run: pnpm release:check
+
+      - name: Package and inspect VSIX
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          artifact=".artifacts/codex-patch.vsix"
+          test -f "$artifact"
+          package_dir="$(mktemp -d)"
+          unzip -q "$artifact" -d "$package_dir"
+          node --input-type=module - "$package_dir/extension/package.json" "$RELEASE_VERSION" <<'NODE'
+          import { readFile } from "node:fs/promises";
+          const [manifestPath, expectedVersion] = process.argv.slice(2);
+          const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+          if (
+            manifest.publisher !== "cixiangtao" ||
+            manifest.name !== "codex-patch" ||
+            manifest.version !== expectedVersion
+          ) {
+            throw new Error(`Unexpected packaged extension identity: ${manifest.publisher}.${manifest.name}@${manifest.version}`);
+          }
+          NODE
+          (cd "$(dirname "$artifact")" && sha256sum "$(basename "$artifact")") > codex-patch-SHA256SUMS.txt
+          printf 'ARTIFACT=%s\n' "$artifact" >> "$GITHUB_ENV"
+          printf 'TAG=codex-patch-v%s\n' "$RELEASE_VERSION" >> "$GITHUB_ENV"
+
+      - name: Create or verify release tag
+        run: |
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            test "$(git rev-list -n 1 "$TAG")" = "$GITHUB_SHA"
+          else
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "$TAG"
+          fi
+
+      - name: Publish to Visual Studio Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+        run: |
+          test -n "$VSCE_PAT"
+          pnpm --dir packages/vscode exec vsce publish \
+            --packagePath "../../$ARTIFACT" \
+            --pat "$VSCE_PAT" \
+            --skip-duplicate
+
+      - name: Verify the public Marketplace artifact
+        env:
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          verification_dir="$(mktemp -d)"
+          public_vsix="$verification_dir/codex-patch.vsix"
+          public_url="https://marketplace.visualstudio.com/_apis/public/gallery/publishers/cixiangtao/vsextensions/codex-patch/${RELEASE_VERSION}/vspackage"
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --location "$public_url" --output "$public_vsix"; then
+              break
+            fi
+            sleep 10
+          done
+          test -s "$public_vsix"
+          mkdir "$verification_dir/local" "$verification_dir/public"
+          unzip -q "$ARTIFACT" -d "$verification_dir/local"
+          unzip -q "$public_vsix" -d "$verification_dir/public"
+          diff --brief --recursive \
+            "$verification_dir/local/extension" \
+            "$verification_dir/public/extension"
+
+      - name: Create or refresh GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$ARTIFACT" codex-patch-SHA256SUMS.txt --clobber
+          else
+            gh release create "$TAG" "$ARTIFACT" codex-patch-SHA256SUMS.txt \
+              --verify-tag \
+              --generate-notes \
+              --latest=false \
+              --title "Codex Patch v${RELEASE_VERSION}"
+          fi

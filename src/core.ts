@@ -1,8 +1,8 @@
-import { spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { chmod, mkdir, open, readFile, readdir, realpath, rename, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { Script } from "node:vm";
 
 import {
   CLEAN_REQUEST_ANCHOR_SOURCE,
@@ -14,7 +14,7 @@ import {
   PATCH_REVISION,
   PATCHED_REQUEST_ANCHOR_SOURCE,
   WORKSPACE_HELPER_SOURCE,
-} from "./constants.js";
+} from "./patch-constants.js";
 
 export type Editor = "vscode" | "cursor" | "auto";
 
@@ -497,15 +497,15 @@ async function writeAtomic(file: string, data: string | Uint8Array, mode = 0o600
   await rename(temporary, file);
 }
 
-function assertJavaScriptSyntax(bundlePath: string): void {
-  const result = spawnSync(process.execPath, ["--check", bundlePath], {
-    encoding: "utf8",
-  });
-  if (result.status !== 0) {
+function assertJavaScriptSyntax(source: string, bundlePath: string): void {
+  try {
+    const script = new Script(source, { filename: bundlePath });
+    script.createCachedData();
+  } catch (error) {
     throw new PatchError(
       "SYNTAX_CHECK_FAILED",
       `Node syntax validation failed for ${bundlePath}.`,
-      { stderr: result.stderr?.trim() },
+      { cause: String(error) },
     );
   }
 }
@@ -597,7 +597,7 @@ export async function applyPatch({
         { expectedHash: patchedHash, actualHash: writtenHash, writtenStructure },
       );
     }
-    assertJavaScriptSyntax(status.bundlePath);
+    assertJavaScriptSyntax(written.toString("utf8"), status.bundlePath);
 
     const manifest: StateManifest = {
       schemaVersion: 1,
@@ -693,7 +693,7 @@ export async function restorePatch({
       actual: restoredHash,
     });
   }
-  assertJavaScriptSyntax(status.bundlePath);
+  assertJavaScriptSyntax(backupBytes.toString("utf8"), status.bundlePath);
 
   const restoredManifest = {
     ...manifest,
