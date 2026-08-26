@@ -21,7 +21,13 @@ export const LEGACY_PATCHED_REQUEST_ANCHOR =
   `/*${PATCH_MARKER}*/` +
   "this.pendingMcpRequests.set(String(n),e),this.codexMcpConnection.sendRequest(L1,String(n),o,i);";
 
-export const WORKSPACE_HELPER_SOURCE = String.raw`function (?<helper>${IDENTIFIER})\(\)\{let (?<folders>${IDENTIFIER})=(?<vscode>${IDENTIFIER})\.workspace\.workspaceFolders\?\.map\((?<folder>${IDENTIFIER})=>\k<folder>\.uri\.fsPath\)\?\?\[\];return (?<isWsl>${IDENTIFIER})\(\)\?\k<folders>\.map\((?<convert>${IDENTIFIER})\):\k<folders>\}`;
+const DIRECT_WORKSPACE_MAP = String.raw`map\((?<folder>${IDENTIFIER})=>\k<folder>\.uri\.fsPath\)`;
+const FILTERED_WORKSPACE_MAP = String.raw`filter\(\(\{uri:(?<filterUri>${IDENTIFIER})\}\)=>\(\k<filterUri>\.fsPath!=="/"\|\|\k<filterUri>\.scheme==="file"\|\|\k<filterUri>\.scheme==="vscode-remote"\)&&(?<isSupported>${IDENTIFIER})\(\k<filterUri>\.fsPath\)\)\.map\(\(\{uri:(?<mappedUri>${IDENTIFIER})\}\)=>\k<mappedUri>\.fsPath\)`;
+
+export const WORKSPACE_HELPER_SOURCE =
+  String.raw`function (?<helper>${IDENTIFIER})\(\)\{let (?<folders>${IDENTIFIER})=(?<vscode>${IDENTIFIER})\.workspace\.workspaceFolders\?\.` +
+  `(?:${DIRECT_WORKSPACE_MAP}|${FILTERED_WORKSPACE_MAP})` +
+  String.raw`\?\?\[\];return (?<isWsl>${IDENTIFIER})\(\)\?\k<folders>\.map\((?<convert>${IDENTIFIER})\):\k<folders>\}`;
 
 export const KNOWN_BUNDLES: Readonly<Record<string, readonly string[]>> =
   Object.freeze(bundleRegistry);
