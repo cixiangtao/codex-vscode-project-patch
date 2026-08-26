@@ -133,6 +133,25 @@ test("patchBundle follows minified identifier changes without weakening structur
   assert.equal(inspectPatchStructure(patched).validPatched, true);
 });
 
+test("patchBundle accepts the filtered workspace helper used by current Codex builds", () => {
+  const source =
+    '"use strict";switch(x){case"mcp-request":{let{id:n,method:o,params:i}=r.request;' +
+    "this.pendingMcpRequests.set(String(n),e)," +
+    "this.codexMcpConnection.sendRequest(pH,String(n),o,i);break;}}" +
+    "function yb(){let t=p_e.workspace.workspaceFolders?.filter(({uri:r})=>" +
+    '(r.fsPath!=="/"||r.scheme==="file"||r.scheme==="vscode-remote")&&qp(r.fsPath))' +
+    ".map(({uri:r})=>r.fsPath)??[];return dr()?t.map(cr):t}";
+  const patched = patchBundle(source);
+  assert.match(patched, new RegExp(`${PATCH_CWD_VARIABLE}=yb\\(\\)`));
+  assert.equal(inspectPatchStructure(patched).validPatched, true);
+
+  const changedFilter = source.replace('r.scheme==="vscode-remote"', 'r.scheme==="ssh"');
+  assert.throws(
+    () => patchBundle(changedFilter),
+    (error) => error instanceof PatchError && error.code === "ANCHOR_MISMATCH",
+  );
+});
+
 test("the current CLI still recognizes patches written by 0.2.1", () => {
   const legacyPatched = cleanFixture().replace(
     'case"mcp-request":{let{id:n,method:o,params:i}=r.request;this.pendingMcpRequests.set(String(n),e),this.codexMcpConnection.sendRequest(L1,String(n),o,i);',
