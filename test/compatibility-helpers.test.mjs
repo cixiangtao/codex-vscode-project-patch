@@ -12,12 +12,19 @@ function marketplaceVersion(
   targetPlatform,
   lastUpdated,
   host = "openai.gallerycdn.vsassets.io",
+  preRelease = false,
 ) {
   return {
     version,
     targetPlatform,
     lastUpdated,
     assetUri: `https://${host}/extensions/openai/chatgpt/${version}/asset`,
+    properties: [
+      {
+        key: "Microsoft.VisualStudio.Code.PreRelease",
+        value: String(preRelease),
+      },
+    ],
   };
 }
 
@@ -48,6 +55,30 @@ test("selectMacAssets chooses the newest complete macOS release pair", () => {
   );
   assert.equal(selected.version, "2.0.0");
   assert.match(selected.assets["darwin-arm64"], /Microsoft\.VisualStudio\.Services\.VSIXPackage$/);
+});
+
+test("selectMacAssets prefers the newest stable pair over a newer pre-release pair", () => {
+  const selected = selectMacAssets(
+    marketplacePayload([
+      marketplaceVersion("26.5820.71523", "darwin-arm64", "2026-08-27T01:50:10Z", undefined, true),
+      marketplaceVersion("26.5820.71523", "darwin-x64", "2026-08-27T01:48:39Z", undefined, true),
+      marketplaceVersion("26.820.71523", "darwin-arm64", "2026-08-27T01:46:12Z"),
+      marketplaceVersion("26.820.71523", "darwin-x64", "2026-08-27T01:45:39Z"),
+    ]),
+  );
+  assert.equal(selected.version, "26.820.71523");
+  assert.equal(selected.preRelease, false);
+});
+
+test("selectMacAssets falls back to a pre-release pair when no stable pair exists", () => {
+  const selected = selectMacAssets(
+    marketplacePayload([
+      marketplaceVersion("26.5820.71523", "darwin-arm64", "2026-08-27T01:50:10Z", undefined, true),
+      marketplaceVersion("26.5820.71523", "darwin-x64", "2026-08-27T01:48:39Z", undefined, true),
+    ]),
+  );
+  assert.equal(selected.version, "26.5820.71523");
+  assert.equal(selected.preRelease, true);
 });
 
 test("selectMacAssets refuses non-Marketplace download hosts", () => {

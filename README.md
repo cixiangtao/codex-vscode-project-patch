@@ -60,10 +60,14 @@ to make future compatible updates require only a single **Restart Extensions**.
 The CLI remains available for diagnostics, recovery, and headless use.
 
 The repository checks the official macOS ARM64/x64 Marketplace builds every
-hour. A compatible new build is fully validated, committed through a protected
-pull request, merged after required CI, and published through the Actions-owned
+hour, preferring stable releases over pre-releases. A compatible new build is
+fully validated, committed through a protected pull request, merged after
+required CI, and published through the Actions-owned
 npm/GitHub Release workflow. Changed request structure or
 `ThreadListParams.cwd` semantics stop the automation and create a review issue.
+The companion extension reads the reviewed registry from `main`, so it receives
+new compatibility data without requiring a Marketplace version bump for every
+Codex release.
 
 See the [full documentation](https://github.com/cixiangtao/codex-vscode-project-patch/blob/main/.github/README.md),
 [contribution guide](https://github.com/cixiangtao/codex-vscode-project-patch/blob/main/CONTRIBUTING.md),

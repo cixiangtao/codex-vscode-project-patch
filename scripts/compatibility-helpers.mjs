@@ -18,6 +18,13 @@ function validatedAssetUri(value) {
   return `${url.toString().replace(/\/$/, "")}/Microsoft.VisualStudio.Services.VSIXPackage`;
 }
 
+function isPreRelease(entry) {
+  return entry?.properties?.some(
+    (property) =>
+      property?.key === "Microsoft.VisualStudio.Code.PreRelease" && property.value === "true",
+  );
+}
+
 export function selectMacAssets(payload) {
   const extension = payload?.results?.[0]?.extensions?.find(
     (candidate) =>
@@ -45,6 +52,7 @@ export function selectMacAssets(payload) {
     .filter(([, entries]) => MAC_TARGETS.every((target) => entries.has(target)))
     .map(([version, entries]) => ({
       version,
+      preRelease: MAC_TARGETS.some((target) => isPreRelease(entries.get(target))),
       updatedAt: Math.max(
         ...MAC_TARGETS.map((target) => Date.parse(entries.get(target).lastUpdated)),
       ),
@@ -53,7 +61,10 @@ export function selectMacAssets(payload) {
       ),
     }))
     .filter((candidate) => Number.isFinite(candidate.updatedAt))
-    .toSorted((left, right) => right.updatedAt - left.updatedAt);
+    .toSorted(
+      (left, right) =>
+        Number(left.preRelease) - Number(right.preRelease) || right.updatedAt - left.updatedAt,
+    );
 
   if (complete.length === 0) fail("Marketplace has no matching macOS ARM64/x64 release pair.");
   return complete[0];
