@@ -130,14 +130,23 @@ jobs:
           test "$public_version" = "$RELEASE_VERSION"
 
           verification_dir="$(mktemp -d)"
-          (
-            cd "$verification_dir"
-            npm exec --yes \
-              --cache "$verification_dir/npm-cache" \
-              --package="codex-vscode-project-patch@$RELEASE_VERSION" \
-              -- codex-vscode-project-patch --version \
-              > "$verification_dir/version.txt"
-          )
+          for attempt in {1..30}; do
+            consumer_dir="$verification_dir/consumer-$attempt"
+            mkdir "$consumer_dir"
+            if (
+              cd "$consumer_dir"
+              npm exec --yes \
+                --prefer-online \
+                --registry=https://registry.npmjs.org/ \
+                --cache "$consumer_dir/npm-cache" \
+                --package="codex-vscode-project-patch@$RELEASE_VERSION" \
+                -- codex-vscode-project-patch --version \
+                > "$verification_dir/version.txt"
+            ); then
+              break
+            fi
+            sleep 5
+          done
           test "$(tr -d '\r\n' < "$verification_dir/version.txt")" = "$RELEASE_VERSION"
 
           artifact_name="codex-vscode-project-patch-${RELEASE_VERSION}.tgz"
