@@ -8,7 +8,9 @@ export const PATCH_CWD_VARIABLE = "__codexVscodeProjectPatchCwd";
 const IDENTIFIER = String.raw`[A-Za-z_$][\w$]*`;
 
 const REQUEST_PREFIX = String.raw`case"mcp-request":\{let\{id:(?<id>${IDENTIFIER}),method:(?<method>${IDENTIFIER}),params:(?<params>${IDENTIFIER})\}=(?<request>${IDENTIFIER})\.request;`;
-const REQUEST_FORWARD = String.raw`this\.pendingMcpRequests\.set\(String\(\k<id>\),(?<origin>${IDENTIFIER})\),this\.codexMcpConnection\.sendRequest\((?<provider>${IDENTIFIER}),String\(\k<id>\),\k<method>,\k<params>\);`;
+const REQUEST_FORWARD =
+  String.raw`this\.pendingMcpRequests\.set\(String\(\k<id>\),(?<origin>${IDENTIFIER})\),this\.codexMcpConnection\.sendRequest\((?<provider>${IDENTIFIER}),String\(\k<id>\),\k<method>,\k<params>` +
+  String.raw`(?:,\k<request>\.retainResponse)?\);`;
 
 export const CLEAN_REQUEST_ANCHOR_SOURCE = `${REQUEST_PREFIX}${REQUEST_FORWARD}`;
 export const PATCHED_REQUEST_ANCHOR_SOURCE =
