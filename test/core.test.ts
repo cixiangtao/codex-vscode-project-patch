@@ -133,6 +133,22 @@ test("patchBundle follows minified identifier changes without weakening structur
   assert.equal(inspectPatchStructure(patched).validPatched, true);
 });
 
+test("patchBundle preserves the retained-response forwarding used by current Codex builds", () => {
+  const source = cleanFixture().replace(
+    "this.codexMcpConnection.sendRequest(L1,String(n),o,i);",
+    "this.codexMcpConnection.sendRequest(L1,String(n),o,i,r.retainResponse);",
+  );
+  const patched = patchBundle(source);
+  assert.match(patched, /sendRequest\(L1,String\(n\),o,i,r\.retainResponse\);/);
+  assert.equal(inspectPatchStructure(patched).validPatched, true);
+
+  const unsupportedForwarding = source.replace("r.retainResponse", "r.unrelatedOption");
+  assert.throws(
+    () => patchBundle(unsupportedForwarding),
+    (error) => error instanceof PatchError && error.code === "ANCHOR_MISMATCH",
+  );
+});
+
 test("patchBundle accepts the filtered workspace helper used by current Codex builds", () => {
   const source =
     '"use strict";switch(x){case"mcp-request":{let{id:n,method:o,params:i}=r.request;' +
