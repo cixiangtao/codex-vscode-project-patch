@@ -40,6 +40,11 @@ export interface GuardianServices {
   onError(error: unknown, options: CheckOptions): void;
 }
 
+/** Resolves the configured repair mode, defaulting to automatic repair. */
+export function resolveRepairMode(configured: unknown): RepairMode {
+  return configured === "prompt" || configured === "off" ? configured : "auto";
+}
+
 function errorCode(error: unknown): string | undefined {
   if (typeof error !== "object" || error === null || !("code" in error)) return undefined;
   return typeof error.code === "string" ? error.code : undefined;
@@ -48,6 +53,10 @@ function errorCode(error: unknown): string | undefined {
 function isMissingExtension(error: unknown): boolean {
   const code = errorCode(error);
   return code === "EXTENSION_NOT_FOUND" || code === "BUNDLE_NOT_FOUND";
+}
+
+function needsFreshCompatibility(status: PatchStatus): boolean {
+  return status.state === "unsupported-version" || status.state === "modified-or-unknown-hash";
 }
 
 /** Coordinates update checks while keeping all editor UI behind injected services. */
@@ -77,7 +86,11 @@ export class PatchGuardian {
     let registryResult: RegistryLoadResult | undefined;
     try {
       registryResult = await this.#services.loadRegistry(forceRegistry);
-      const status = await this.#services.getStatus(registryResult.registry);
+      let status = await this.#services.getStatus(registryResult.registry);
+      if (!forceRegistry && registryResult.source !== "remote" && needsFreshCompatibility(status)) {
+        registryResult = await this.#services.loadRegistry(true);
+        status = await this.#services.getStatus(registryResult.registry);
+      }
       if (status.state === "patched") {
         return this.#emit({
           kind: "healthy",
@@ -89,8 +102,13 @@ export class PatchGuardian {
       }
 
       if (!status.patchable) {
+        const compatibilityUnavailable =
+          registryResult.warning != null && needsFreshCompatibility(status);
         return this.#emit({
-          kind: status.state === "unsupported-version" ? "waiting" : "attention",
+          kind:
+            status.state === "unsupported-version" || compatibilityUnavailable
+              ? "waiting"
+              : "attention",
           reason,
           registrySource: registryResult.source,
           status,

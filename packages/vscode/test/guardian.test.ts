@@ -4,6 +4,7 @@ import { test } from "vitest";
 import type { ApplyResult, BundleRegistry, PatchStatus } from "../../../src/core.js";
 import {
   PatchGuardian,
+  resolveRepairMode,
   type GuardianOutcome,
   type GuardianServices,
   type RepairDecision,
@@ -109,6 +110,14 @@ test("automatic mode repairs a compatible clean extension", async () => {
   assert.equal(harness.outcomes.at(-1)?.kind, "repaired");
 });
 
+test("repair mode defaults to automatic unless the user explicitly opts out", () => {
+  assert.equal(resolveRepairMode(undefined), "auto");
+  assert.equal(resolveRepairMode("auto"), "auto");
+  assert.equal(resolveRepairMode("prompt"), "prompt");
+  assert.equal(resolveRepairMode("off"), "off");
+  assert.equal(resolveRepairMode("unexpected"), "auto");
+});
+
 test("prompt mode can enable automatic repair while applying the current update", async () => {
   const harness = serviceHarness({ mode: "prompt", decision: "always" });
   const guardian = new PatchGuardian(harness.services);
@@ -142,5 +151,99 @@ test("unsupported versions remain unchanged", async () => {
   const outcome = await guardian.check({ reason: "interval" });
 
   assert.equal(outcome.kind, "waiting");
+  assert.equal(harness.getApplyCount(), 0);
+});
+
+test("a stale cache is forcibly refreshed before refusing a compatible update", async () => {
+  const outcomes: GuardianOutcome[] = [];
+  const loadForces: boolean[] = [];
+  let applyCount = 0;
+  const staleRegistry: BundleRegistry = { "26.818.32112": ["b".repeat(64)] };
+  const patchedStatus = status({
+    state: "patched",
+    patchable: false,
+    restorable: true,
+    structure: {
+      ...status().structure,
+      markerCount: 1,
+      originalAnchorCount: 0,
+      patchedAnchorCount: 1,
+      validClean: false,
+      validPatched: true,
+    },
+  });
+  const guardian = new PatchGuardian({
+    loadRegistry: async (force) => {
+      loadForces.push(force);
+      return force
+        ? { registry: REGISTRY, source: "remote" }
+        : { registry: staleRegistry, source: "cache" };
+    },
+    getStatus: async (registry) =>
+      registry[VERSION] == null
+        ? status({
+            state: "unsupported-version",
+            patchable: false,
+            versionSupported: false,
+            cleanHashSupported: false,
+            knownHashes: [],
+          })
+        : status(),
+    apply: async () => {
+      applyCount += 1;
+      return { changed: true, dryRun: false, status: patchedStatus };
+    },
+    getRepairMode: () => "auto",
+    requestRepair: async () => "repair",
+    enableAutomaticRepair: async () => undefined,
+    onOutcome: (outcome) => outcomes.push(outcome),
+    onRepaired: async () => undefined,
+    onError: () => undefined,
+  });
+
+  const outcome = await guardian.check({ reason: "startup" });
+  assert.deepEqual(loadForces, [false, true]);
+  assert.equal(applyCount, 1);
+  assert.equal(outcome.kind, "repaired");
+  assert.equal(outcomes.at(-1)?.kind, "repaired");
+});
+
+test("an unavailable registry reports waiting instead of claiming the bundle was modified", async () => {
+  const loadForces: boolean[] = [];
+  const uncertainStatus = status({
+    state: "modified-or-unknown-hash",
+    patchable: false,
+    cleanHashSupported: false,
+  });
+  const guardian = new PatchGuardian({
+    ...serviceHarness({ currentStatus: uncertainStatus }).services,
+    loadRegistry: async (force) => {
+      loadForces.push(force);
+      return {
+        registry: REGISTRY,
+        source: "cache",
+        warning: "Could not refresh compatibility data: offline",
+      };
+    },
+  });
+
+  const outcome = await guardian.check({ reason: "startup" });
+  assert.deepEqual(loadForces, [false, true]);
+  assert.equal(outcome.kind, "waiting");
+  assert.match(outcome.warning ?? "", /offline/);
+});
+
+test("a remotely confirmed unknown hash still requires attention", async () => {
+  const harness = serviceHarness({
+    currentStatus: status({
+      state: "modified-or-unknown-hash",
+      patchable: false,
+      cleanHashSupported: false,
+    }),
+  });
+  const guardian = new PatchGuardian(harness.services);
+
+  const outcome = await guardian.check({ reason: "manual", forceRegistry: true });
+  assert.equal(outcome.kind, "attention");
   assert.equal(harness.getApplyCount(), 0);
 });

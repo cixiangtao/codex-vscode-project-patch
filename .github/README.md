@@ -100,19 +100,14 @@ that removes the manual repair step after compatible official Codex updates.
 It listens for installed-extension changes, performs a fallback periodic check,
 and refreshes the reviewed compatibility registry with a short local cache.
 
-The default `codexPatch.repairMode` is `prompt`. Choosing **Always Repair
-Automatically** changes it to `auto`; `off` keeps status reporting enabled but
-never writes automatically. A successful repair offers one **Restart
-Extensions** action. Unknown versions, unknown hashes, modified bundles, and
+The default `codexPatch.repairMode` is `auto`; `prompt` asks before each new
+compatible Codex build, while `off` keeps status reporting enabled but never
+writes automatically. A successful repair offers one **Restart Extensions**
+action. Unknown versions, unknown hashes, modified bundles, and
 unmanaged patches remain untouched.
 
-Install the published extension from the Visual Studio Marketplace:
-
-```bash
-code --install-extension cixiangtao.codex-patch
-```
-
-For development, build and install the local VSIX:
+Visual Studio Marketplace distribution is currently unavailable. Build and
+install the local VSIX from this repository checkout:
 
 ```bash
 pnpm install --frozen-lockfile
