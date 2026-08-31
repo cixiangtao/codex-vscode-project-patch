@@ -5,6 +5,7 @@ export const COMPATIBILITY_REGISTRY_URL =
 
 const DEFAULT_CACHE_TTL_MS = 10 * 60 * 1000;
 const DEFAULT_TIMEOUT_MS = 5000;
+const DEFAULT_REQUEST_ATTEMPTS = 2;
 const CACHE_KEY = "codexPatch.compatibilityRegistry";
 const MAX_REGISTRY_BYTES = 64 * 1024;
 const MAX_REGISTRY_ENTRIES = 512;
@@ -36,6 +37,7 @@ interface CompatibilityRegistryClientOptions {
   now?: () => number;
   cacheTtlMs?: number;
   timeoutMs?: number;
+  requestAttempts?: number;
   url?: string;
 }
 
@@ -102,6 +104,7 @@ export class CompatibilityRegistryClient {
   readonly #now: () => number;
   readonly #cacheTtlMs: number;
   readonly #timeoutMs: number;
+  readonly #requestAttempts: number;
   readonly #url: string;
 
   constructor({
@@ -111,6 +114,7 @@ export class CompatibilityRegistryClient {
     now = Date.now,
     cacheTtlMs = DEFAULT_CACHE_TTL_MS,
     timeoutMs = DEFAULT_TIMEOUT_MS,
+    requestAttempts = DEFAULT_REQUEST_ATTEMPTS,
     url = COMPATIBILITY_REGISTRY_URL,
   }: CompatibilityRegistryClientOptions) {
     this.#embeddedRegistry = parseCompatibilityRegistry(embeddedRegistry);
@@ -119,6 +123,7 @@ export class CompatibilityRegistryClient {
     this.#now = now;
     this.#cacheTtlMs = cacheTtlMs;
     this.#timeoutMs = timeoutMs;
+    this.#requestAttempts = Math.max(1, Math.floor(requestAttempts));
     this.#url = url;
   }
 
@@ -129,43 +134,48 @@ export class CompatibilityRegistryClient {
       return { registry: cached.registry, source: "cache" };
     }
 
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), this.#timeoutMs);
-    try {
-      const headers = new Headers({ Accept: "application/json" });
-      if (cached?.etag != null) headers.set("If-None-Match", cached.etag);
-      const response = await this.#fetcher(this.#url, {
-        headers,
-        signal: controller.signal,
-      });
-      if (response.status === 304 && cached != null) {
-        const refreshed = { ...cached, fetchedAt: now };
-        await this.#store.update(CACHE_KEY, refreshed);
-        return { registry: refreshed.registry, source: "cache" };
-      }
-      if (!response.ok) {
-        throw new Error(`Compatibility registry request failed with HTTP ${response.status}.`);
-      }
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= this.#requestAttempts; attempt += 1) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), this.#timeoutMs);
+      try {
+        const headers = new Headers({ Accept: "application/json" });
+        if (cached?.etag != null) headers.set("If-None-Match", cached.etag);
+        const response = await this.#fetcher(this.#url, {
+          headers,
+          signal: controller.signal,
+        });
+        if (response.status === 304 && cached != null) {
+          const refreshed = { ...cached, fetchedAt: now };
+          await this.#store.update(CACHE_KEY, refreshed);
+          return { registry: refreshed.registry, source: "cache" };
+        }
+        if (!response.ok) {
+          throw new Error(`Compatibility registry request failed with HTTP ${response.status}.`);
+        }
 
-      const body = await response.text();
-      if (Buffer.byteLength(body, "utf8") > MAX_REGISTRY_BYTES) {
-        throw new Error("Compatibility registry response is too large.");
+        const body = await response.text();
+        if (Buffer.byteLength(body, "utf8") > MAX_REGISTRY_BYTES) {
+          throw new Error("Compatibility registry response is too large.");
+        }
+        const registry = parseCompatibilityRegistry(JSON.parse(body) as unknown);
+        const etag = response.headers.get("etag");
+        const nextCache: CachedRegistry = {
+          fetchedAt: now,
+          registry,
+          ...(etag == null ? {} : { etag }),
+        };
+        await this.#store.update(CACHE_KEY, nextCache);
+        return { registry, source: "remote" };
+      } catch (error) {
+        lastError = error;
+      } finally {
+        clearTimeout(timeout);
       }
-      const registry = parseCompatibilityRegistry(JSON.parse(body) as unknown);
-      const etag = response.headers.get("etag");
-      const nextCache: CachedRegistry = {
-        fetchedAt: now,
-        registry,
-        ...(etag == null ? {} : { etag }),
-      };
-      await this.#store.update(CACHE_KEY, nextCache);
-      return { registry, source: "remote" };
-    } catch (error) {
-      const warning = `Could not refresh compatibility data: ${String(error)}`;
-      if (cached != null) return { registry: cached.registry, source: "cache", warning };
-      return { registry: this.#embeddedRegistry, source: "embedded", warning };
-    } finally {
-      clearTimeout(timeout);
     }
+
+    const warning = `Could not refresh compatibility data after ${this.#requestAttempts} attempts: ${String(lastError)}`;
+    if (cached != null) return { registry: cached.registry, source: "cache", warning };
+    return { registry: this.#embeddedRegistry, source: "embedded", warning };
   }
 }

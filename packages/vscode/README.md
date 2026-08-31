@@ -15,9 +15,17 @@ active when Codex updates replace the installed extension bundle.
   them.
 - Offers a single **Restart Extensions** action after a successful repair.
 
-The default repair mode is `prompt`. Select **Always Repair Automatically** once,
-or set `codexPatch.repairMode` to `auto`, to repair future compatible updates
-without running the CLI manually.
+The default repair mode is `auto`. Set `codexPatch.repairMode` to `prompt` to ask
+before each compatible update, or `off` to report status without writing.
+
+Visual Studio Marketplace distribution is currently unavailable. Build and
+install the local VSIX from the repository root:
+
+```bash
+pnpm install --frozen-lockfile
+pnpm vscode:package
+code --install-extension .artifacts/codex-patch.vsix
+```
 
 ## Commands
 

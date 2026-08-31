@@ -57,12 +57,36 @@ test("registry client refreshes once and reuses its fresh persistent cache", asy
   assert.equal(requests, 1);
 });
 
-test("registry client fails closed to embedded data when refresh is unavailable", async () => {
+test("registry client retries a transient refresh failure before falling back", async () => {
   const store = new MemoryStore();
+  let requests = 0;
   const client = new CompatibilityRegistryClient({
     embeddedRegistry: { [VERSION]: [HASH] },
     store,
     fetcher: async () => {
+      requests += 1;
+      if (requests === 1) throw new Error("temporary network failure");
+      return new Response(JSON.stringify({ [VERSION]: [HASH] }), {
+        status: 200,
+        headers: { etag: '"registry-v2"', "content-type": "application/json" },
+      });
+    },
+  });
+
+  const result = await client.load(true);
+  assert.equal(result.source, "remote");
+  assert.equal(result.warning, undefined);
+  assert.equal(requests, 2);
+});
+
+test("registry client fails closed to embedded data when refresh is unavailable", async () => {
+  const store = new MemoryStore();
+  let requests = 0;
+  const client = new CompatibilityRegistryClient({
+    embeddedRegistry: { [VERSION]: [HASH] },
+    store,
+    fetcher: async () => {
+      requests += 1;
       throw new Error("offline");
     },
   });
@@ -71,4 +95,5 @@ test("registry client fails closed to embedded data when refresh is unavailable"
   assert.equal(result.source, "embedded");
   assert.deepEqual(result.registry, { [VERSION]: [HASH] });
   assert.match(result.warning ?? "", /offline/);
+  assert.equal(requests, 2);
 });

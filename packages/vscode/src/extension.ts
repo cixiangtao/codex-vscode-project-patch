@@ -11,6 +11,7 @@ import {
 import { KNOWN_BUNDLES } from "../../../src/patch-constants.js";
 import {
   PatchGuardian,
+  resolveRepairMode,
   type CheckOptions,
   type GuardianOutcome,
   type RepairDecision,
@@ -30,8 +31,7 @@ function configuration(): vscode.WorkspaceConfiguration {
 }
 
 function repairMode(): RepairMode {
-  const configured = configuration().get<unknown>("repairMode", "prompt");
-  return configured === "auto" || configured === "off" ? configured : "prompt";
+  return resolveRepairMode(configuration().get<unknown>("repairMode"));
 }
 
 function checkIntervalMs(): number {
@@ -49,6 +49,7 @@ class CodexPatchExtension implements vscode.Disposable {
   readonly #statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 25);
   readonly #registry: CompatibilityRegistryClient;
   readonly #guardian: PatchGuardian;
+  readonly #extensionVersion: string;
   readonly #disposables: vscode.Disposable[] = [];
   #lastOutcome: GuardianOutcome | undefined;
   #lastNoticeKey: string | undefined;
@@ -56,6 +57,8 @@ class CodexPatchExtension implements vscode.Disposable {
   #debounceTimer: NodeJS.Timeout | undefined;
 
   constructor(context: vscode.ExtensionContext) {
+    const version = context.extension.packageJSON.version;
+    this.#extensionVersion = typeof version === "string" ? version : "unknown";
     this.#registry = new CompatibilityRegistryClient({
       embeddedRegistry: KNOWN_BUNDLES,
       store: context.globalState,
@@ -75,6 +78,7 @@ class CodexPatchExtension implements vscode.Disposable {
   }
 
   activate(): void {
+    this.#output.appendLine(`Codex Patch ${this.#extensionVersion} activated.`);
     this.#statusBar.command = "codexPatch.showStatus";
     this.#statusBar.name = "Codex Patch";
     this.#statusBar.show();
@@ -222,6 +226,7 @@ class CodexPatchExtension implements vscode.Disposable {
   #showStatus(): void {
     this.#output.clear();
     this.#output.appendLine("Codex Patch status");
+    this.#output.appendLine(`Codex Patch version: ${this.#extensionVersion}`);
     this.#output.appendLine(`Repair mode: ${repairMode()}`);
     this.#output.appendLine(`Official extension: ${OFFICIAL_EXTENSION_ID}`);
     if (this.#lastOutcome == null) {

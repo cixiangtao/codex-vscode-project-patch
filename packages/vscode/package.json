@@ -1,7 +1,7 @@
 {
   "name": "codex-patch",
   "displayName": "Codex Patch",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Automatically keeps the Codex workspace task filter active after extension updates.",
   "categories": [
     "Other"
@@ -79,7 +79,7 @@
             "Repair compatible Codex extension updates automatically.",
             "Only report status; never repair automatically."
           ],
-          "default": "prompt",
+          "default": "auto",
           "description": "Controls how Codex Patch responds to compatible Codex extension updates."
         },
         "codexPatch.checkIntervalMinutes": {

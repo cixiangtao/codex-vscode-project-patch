@@ -44,10 +44,13 @@ If the new bundle is unknown, the CLI exits without modifying it.
 
 ## Automatic update repair
 
-Install **Codex Patch**, the unofficial companion VS Code extension:
+Visual Studio Marketplace distribution is currently unavailable. From this
+repository checkout, build and install the unofficial **Codex Patch** companion:
 
 ```bash
-code --install-extension cixiangtao.codex-patch
+pnpm install --frozen-lockfile
+pnpm vscode:package
+code --install-extension .artifacts/codex-patch.vsix
 ```
 
 It detects official Codex extension updates, refreshes the reviewed
@@ -55,8 +58,8 @@ compatibility registry, and reuses the same fail-closed Core to repair a
 compatible clean bundle before the user restarts extensions. Unknown or
 modified bundles are never changed.
 
-The default repair mode asks first. Choose **Always Repair Automatically** once
-to make future compatible updates require only a single **Restart Extensions**.
+The default repair mode automatically repairs reviewed Codex updates. Future
+compatible updates require only a single **Restart Extensions**.
 The CLI remains available for diagnostics, recovery, and headless use.
 
 The repository checks the official macOS ARM64/x64 Marketplace builds every
