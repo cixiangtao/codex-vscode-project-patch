@@ -6,6 +6,13 @@ compatibility: Requires Node.js 20+ and npm/npx.
 
 # Codex VS Code project patch
 
+This project stopped maintenance on October 20, 2026. The last npm release is
+`0.3.16`; compatibility reviews and security fixes have ended. Prefer inspection
+and recovery. Before restoring, set an installed Codex Patch companion's
+`codexPatch.repairMode` to `off` so it cannot reapply the patch. After recovery,
+uninstall the companion and reload VS Code. Do not promise support for newer
+official extension builds.
+
 Use the installed CLI as the source of truth. It validates the official
 extension version, bundle hash, patch anchors, backup, and restored content.
 

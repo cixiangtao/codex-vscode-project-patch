@@ -1,10 +1,27 @@
 # Codex Patch
 
+> **No longer maintained as of October 20, 2026.** No further compatibility
+> reviews, bug fixes, security fixes, or releases are planned. The compatibility
+> registry is frozen. Existing installations do not disable themselves.
+
+## Remove the companion and patch
+
+1. Set `codexPatch.repairMode` to `off` to prevent automatic reapplication.
+2. Run **Codex Patch: Restore Official Extension** from the Command Palette.
+3. Uninstall **Codex Patch** (`cixiangtao.codex-patch`) and run
+   **Developer: Reload Window**.
+
+If the companion is unavailable, use the
+[CLI recovery instructions](https://github.com/cixiangtao/codex-vscode-project-patch#remove-the-patch-and-return-to-the-official-extension).
+If restore refuses a changed bundle, keep the companion disabled or uninstalled
+and reinstall the official `openai.chatgpt` extension through VS Code. Do not
+overwrite a newer official bundle with an old backup.
+
+## Historical behavior
+
 Codex Patch is an unofficial companion extension for the official
 `openai.chatgpt` VS Code extension. It keeps the workspace task filter patch
 active when Codex updates replace the installed extension bundle.
-
-## Behavior
 
 - Watches for installed-extension changes and performs a fallback periodic check.
 - Refreshes the reviewed compatibility registry with a short local cache.

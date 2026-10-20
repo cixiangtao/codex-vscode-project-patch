@@ -1,5 +1,29 @@
 # codex-vscode-project-patch
 
+> **No longer maintained as of October 20, 2026.** Development, compatibility
+> reviews, bug fixes, security fixes, and releases have ended. The allowlist is
+> frozen. The technical documentation below is historical reference.
+
+## Return to the official extension
+
+If Codex Patch is installed, set `codexPatch.repairMode` to `off` before
+restoring so it cannot reapply the patch. Run **Codex Patch: Restore Official
+Extension**, or use the last released CLI with Node.js 20 or newer:
+
+```bash
+npx --yes --prefer-online codex-vscode-project-patch@0.3.16 restore
+```
+
+Then uninstall **Codex Patch** (`cixiangtao.codex-patch`) and run
+**Developer: Reload Window**. Repository archival does not disable companions
+already installed on users' machines.
+
+If restore refuses a changed bundle, do not force an old backup over it. Keep
+the companion disabled or uninstalled and reinstall the official
+`openai.chatgpt` extension through VS Code instead.
+
+## Historical overview
+
 A minimal, version-aware npm CLI that locally patches the installed official
 `openai.chatgpt` VS Code extension. The patch adds the active workspace folder
 paths to Webview-originated `thread/list` requests, so Codex task history is
@@ -8,9 +32,9 @@ filtered by exact session `cwd`.
 This package does **not** contain, download, repack, or redistribute OpenAI's
 VSIX or bundle. It modifies the user's existing local installation only.
 
-## Supported build
+## Last reviewed builds (frozen)
 
-The project deliberately keeps a narrow allowlist:
+The project used a narrow allowlist. No new builds will be reviewed:
 
 <!-- compatibility-table:start -->
 
@@ -299,53 +323,26 @@ Codex Webview task list.
 - VS Code may report that extension files were modified, and official updates
   will normally remove the patch.
 
-For each new official build, regenerate the bundled app-server schema, confirm
-the `cwd` contract, trace the request bridge again, test against a copied
-installation, and only then add the new version/hash to the allowlist.
+Historically, a new official build required regenerating the bundled app-server
+schema, confirming the `cwd` contract, tracing the request bridge, and testing a
+copied installation before adding a version/hash. This project no longer
+performs those reviews.
 
-## Scheduled compatibility updates
+## Retired automation
 
-`.github/workflows/update-compatibility.yml` checks the official Marketplace
-every hour. It prefers the newest stable release pair and falls back to the
-newest pre-release pair only when no complete stable macOS pair exists. It does
-no large download when the selected version is already in the registry. For an
-unknown version it downloads the official macOS ARM64 and x64 VSIX packages into
-temporary runner storage, then requires all of the following before changing
-source files:
+Scheduled Marketplace checks, automatic compatibility pull requests and merges,
+and npm/VSIX publishers have been retired. Their workflow definitions and the
+Dependabot update configuration were removed from the active tree; previous
+implementations remain in Git history.
 
-- both packages have the expected OpenAI identity, version, and local entry;
-- every clean entry has one supported request bridge and one workspace helper;
-- the patch transforms each platform bundle and the result passes JavaScript
-  syntax validation;
-- the platform bundle hashes are recorded without committing the VSIX or any
-  extracted proprietary file;
-- the bundled Codex binary regenerates `ThreadListParams`, whose `cwd` remains
-  an exact-match string-or-string-array filter;
-- the version-bumped package passes `pnpm release:check`.
-
-A successful check commits a version-bumped compatibility pull request,
-approves only the generated pull request's exact CI run when GitHub holds that
-run for workflow-created-PR approval, waits for every protected-branch check,
-then squash-merges it and dispatches the Actions-owned npm/GitHub Release
-publisher. It does not approve a pull request review or bypass a check. The
-scheduled run waits for public package and release-asset verification before
-succeeding. If structure, protocol, identity, download origin, or validation
-changes, the workflow leaves the allowlist untouched and opens or updates a
-blocking issue instead.
-
-Repository Actions settings must allow `GITHUB_TOKEN` to create pull requests;
-branch protection remains enabled and the workflow does not bypass its own
-checks.
-
-The companion extension refreshes this registry from `main`, so a compatible
-Codex release does not require a new companion Marketplace version. The npm
-package is versioned and released with the allowlist update; the companion
-extension is versioned independently and is republished only when its own code
-or packaged behavior changes.
+The compatibility registry on `main` is frozen. Existing companions may still
+fetch it and repair previously reviewed bundles until disabled or uninstalled.
+No new compatibility data or companion releases will be provided.
 
 ## License and status
 
 MIT licensed. This is an unofficial proof of concept and is not affiliated with
 or endorsed by OpenAI. Contribution and security-reporting expectations are
-documented in `CONTRIBUTING.md` and `SECURITY.md`; release ownership is
-documented in `RELEASING.md`.
+documented in [CONTRIBUTING.md](../CONTRIBUTING.md) and
+[SECURITY.md](../SECURITY.md); the retired release process is documented in
+[RELEASING.md](../RELEASING.md).

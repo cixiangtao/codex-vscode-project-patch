@@ -1,76 +1,48 @@
 # codex-vscode-project-patch
 
+> **No longer maintained as of October 20, 2026.** Development, compatibility
+> reviews, bug fixes, security fixes, and releases have ended. Existing source
+> and releases remain available for reference and recovery. Compatibility with
+> future official Codex extension versions is not supported.
+
 Filter the official Codex VS Code task list to the active workspace, without
 redistributing OpenAI's extension or VSIX.
 
-## Use
+## Remove the patch and return to the official extension
 
-Requires Node.js 20 or newer and an installed `openai.chatgpt` VS Code extension.
+1. If the **Codex Patch** companion is installed, set
+   `codexPatch.repairMode` to `off` first so it cannot reapply the patch.
+2. Run **Codex Patch: Restore Official Extension** from the Command Palette,
+   or use the last released CLI (Node.js 20 or newer):
 
-```bash
-npx --yes --prefer-online codex-vscode-project-patch@latest
-```
+   ```bash
+   npx --yes --prefer-online codex-vscode-project-patch@0.3.16 restore
+   ```
 
-The explicit `@latest` selects npm's current release tag, while
-`--prefer-online` forces an immediate freshness check. `--yes` only accepts
-npm's install prompt; it does not update an already available command by itself.
+3. Uninstall **Codex Patch** (`cixiangtao.codex-patch`), then run
+   **Developer: Reload Window** in VS Code.
 
-The default command discovers the extension, checks its version and bundle hash,
-creates a verified backup, applies the patch atomically, and verifies the result.
-It refuses unknown or ambiguous builds instead of guessing.
-
-After a successful run, reload VS Code:
-
-1. Press `Cmd+Shift+P` on macOS or `Ctrl+Shift+P` on Windows/Linux.
-2. Run `Developer: Reload Window`.
-3. Reopen the Codex task list.
-
-Restore the official file at any time:
+To inspect the installation without changing it:
 
 ```bash
-npx --yes --prefer-online codex-vscode-project-patch@latest restore
+npx --yes --prefer-online codex-vscode-project-patch@0.3.16 status --json
 ```
 
-Inspect the installation without changing it:
+Restore refuses to overwrite an official update or an unrelated local edit.
+If it refuses, do not force the old backup onto the current extension. With
+the companion disabled or uninstalled, reinstall the official `openai.chatgpt`
+extension through VS Code instead.
 
-```bash
-npx --yes --prefer-online codex-vscode-project-patch@latest status
-npx --yes --prefer-online codex-vscode-project-patch@latest status --json
-```
+## Archived project
 
-Supported extension versions and bundle hashes are deliberately allowlisted.
-An official extension update may remove the patch; rerun the same `npx` command.
-If the new bundle is unknown, the CLI exits without modifying it.
+The compatibility registry is frozen. Compatibility polling, automatic
+compatibility pull requests, dependency updates, and npm/VSIX release workflows
+have been retired. Already installed companions retain their existing behavior
+until disabled or uninstalled; repository archival does not turn them off.
 
-## Automatic update repair
-
-Visual Studio Marketplace distribution is currently unavailable. From this
-repository checkout, build and install the unofficial **Codex Patch** companion:
-
-```bash
-pnpm install --frozen-lockfile
-pnpm vscode:package
-code --install-extension .artifacts/codex-patch.vsix
-```
-
-It detects official Codex extension updates, refreshes the reviewed
-compatibility registry, and reuses the same fail-closed Core to repair a
-compatible clean bundle before the user restarts extensions. Unknown or
-modified bundles are never changed.
-
-The default repair mode automatically repairs reviewed Codex updates. Future
-compatible updates require only a single **Restart Extensions**.
-The CLI remains available for diagnostics, recovery, and headless use.
-
-The repository checks the official macOS ARM64/x64 Marketplace builds every
-hour, preferring stable releases over pre-releases. A compatible new build is
-fully validated, committed through a protected pull request, merged after
-required CI, and published through the Actions-owned
-npm/GitHub Release workflow. Changed request structure or
-`ThreadListParams.cwd` semantics stop the automation and create a review issue.
-The companion extension reads the reviewed registry from `main`, so it receives
-new compatibility data without requiring a Marketplace version bump for every
-Codex release.
+The last npm CLI release is `0.3.16`. Source, tags, and release artifacts are
+retained; no new releases are planned. Issues and pull requests are no longer
+maintained. Forks may continue independently under the MIT license.
 
 See the [full documentation](https://github.com/cixiangtao/codex-vscode-project-patch/blob/main/.github/README.md),
 [contribution guide](https://github.com/cixiangtao/codex-vscode-project-patch/blob/main/CONTRIBUTING.md),
