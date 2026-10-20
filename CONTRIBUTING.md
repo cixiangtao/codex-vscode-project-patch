@@ -1,6 +1,9 @@
 # Contributing
 
-Thanks for helping improve `codex-vscode-project-patch`.
+This project stopped maintenance on October 20, 2026. Issues, pull requests,
+compatibility data, and release requests are no longer reviewed. Independent
+forks are welcome under the MIT license. The development notes below are kept
+for historical reference and do not describe an active contribution process.
 
 ## Prerequisites
 
@@ -49,14 +52,11 @@ pnpm vscode:package
 - Do not include an official OpenAI VSIX, extension bundle, or extracted
   proprietary assets in commits, fixtures, issues, or pull requests.
 
-Routine macOS compatibility updates are proposed, checked, merged, and released
-by the scheduled workflow. Branch protection and all required CI still apply;
-the workflow cannot approve or bypass its own checks. A failed scheduled check
-is evidence that the patch or protocol needs manual analysis, not a reason to
-bypass the allowlist.
+The scheduled compatibility and release workflows have been retired. The
+compatibility allowlist is frozen; do not bypass it to target newer builds.
 
 ## Reporting compatibility data
 
-Hashes, extension versions, structural anchors, and reduced synthetic fixtures
-are welcome. Do not upload the official bundle itself. Redact usernames and
-local paths from logs before sharing them publicly.
+For independent forks, use hashes, extension versions, structural anchors, and
+reduced synthetic fixtures. Do not upload the official bundle itself. Redact
+usernames and local paths from logs before sharing them publicly.
