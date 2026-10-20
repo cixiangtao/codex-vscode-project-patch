@@ -4,7 +4,7 @@
 > reviews, bug fixes, security fixes, and releases have ended. The allowlist is
 > frozen. The technical documentation below is historical reference.
 
-## Return to the official extension
+## Remove the patch and return to the official extension
 
 If Codex Patch is installed, set `codexPatch.repairMode` to `off` before
 restoring so it cannot reapply the patch. Run **Codex Patch: Restore Official
